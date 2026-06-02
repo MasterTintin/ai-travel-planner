@@ -17,6 +17,22 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  React.useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   // รายชื่อประเทศยอดฮิตทั่วโลกเพื่อทำ Dropdown
   const countries = [
     "Japan",
@@ -40,7 +56,7 @@ function App() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 3. ฟังก์ชันยิงข้ามท่อข้ามเซิร์ฟเวอร์
+  // 3. ฟังก์ชันยิงข้ามท่อข้าม Server
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -55,9 +71,7 @@ function App() {
       setTripResult(response.data);
     } catch (err) {
       console.error("Frontend Fetch Error:", err);
-      setError(
-        err.response?.data?.error || "เกิดข้อผิดพลาดในการเชื่อมต่อหลังบ้าน"
-      );
+      setError(err.response?.data?.error || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setLoading(false);
     }
@@ -199,18 +213,61 @@ function App() {
           type="submit"
           disabled={loading}
           style={{
-            padding: "12px",
-            background: loading ? "#ccc" : "#ff5a5f",
+            padding: "14px",
+            background: loading
+              ? "linear-gradient(90deg, #ccc 25%, #bbb 50%, #ccc 75%)"
+              : "#ff5a5f",
+            backgroundSize: "200% 100%",
+            animation: loading ? "shimmer 1.5s infinite linear" : "none",
             color: "white",
             border: "none",
-            cursor: "pointer",
+            borderRadius: "6px",
+            cursor: loading ? "not-allowed" : "pointer",
             fontSize: "16px",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            transition: "all 0.3s ease",
+            boxShadow: loading ? "none" : "0 4px 6px rgba(255, 90, 95, 0.2)",
+            transform: loading ? "none" : "scale(1)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center"
+          }}
+          onMouseOver={(e) => {
+            if (!loading) {
+              e.currentTarget.style.background = "#e04b4f";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }
+          }}
+          onMouseOut={(e) => {
+            if (!loading) {
+              e.currentTarget.style.background = "#ff5a5f";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
           }}
         >
-          {loading
-            ? "กำลังให้ AI จัดแจงตั๋วเครื่องบินและปั้นตารางเที่ยว... 🧠✈️"
-            : "ค้นหาเที่ยวบินและวางแผนเที่ยวได้เลย! 🔥"}
+          {loading ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px"
+              }}
+            >
+              <span
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  border: "3px solid rgba(255,255,255,0.3)",
+                  borderTop: "3px solid white",
+                  borderRadius: "50%",
+                  animation: "spin 1s infinite linear"
+                }}
+              ></span>
+              กำลังให้ AI จัดแจงตั๋วเครื่องบินและตารางเที่ยว... 🧠✈️
+            </span>
+          ) : (
+            "ค้นหาเที่ยวบินและวางแผนเที่ยวได้เลย! 🔥"
+          )}
         </button>
       </form>
 
@@ -316,7 +373,7 @@ function App() {
                     <small style={{ color: "#999" }}>
                       💵 คาดการณ์ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:{" "}
                       <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${act.latitude},${act.longitude}`}
+                        href={`https://www.google.com/maps?q=${act.latitude},${act.longitude}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
