@@ -8,7 +8,7 @@ function App() {
     departureDate: "",
     days: 1,
     budget: "Economy",
-    airlinePreference: "Full Service", // เพิ่มตัวเลือกระดับสายการบินตามงบ
+    airlinePreference: "Full Service",
     interests: ""
   });
 
@@ -36,7 +36,6 @@ function App() {
     "Australia"
   ];
 
-  // ฟังก์ชันอัปเดตค่าในฟอร์มเวลาพิมพ์หรือเลือก
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -49,7 +48,6 @@ function App() {
     setTripResult(null);
 
     try {
-      // ส่ง formData ก้อนใหม่ที่ข้อมูลแน่นกว่าเดิมไปให้ backend
       const response = await axios.post(
         "http://127.0.0.1:5000/api/generate-trip",
         formData
@@ -149,10 +147,10 @@ function App() {
             style={{ width: "100%", padding: "8px", marginTop: "5px" }}
           >
             <option value="Low-cost">
-              Low-cost (สายการบินประหยัด เช่น AirAsia, Scoot)
+              Low-cost (สายการบินประหยัด เช่น AirAsia, VietJet)
             </option>
             <option value="Full Service">
-              Full Service (บริการเต็มรูปแบบ เช่น THAI, ANA)
+              Full Service (บริการเต็มรูปแบบ เช่น THAI AIRWAYS, ANA)
             </option>
             <option value="Luxury/First Class">
               Luxury/First Class (พรีเมียมหรูหรา เช่น Emirates, Singapore
@@ -260,7 +258,7 @@ function App() {
               }}
             >
               <h3 style={{ margin: "0 0 10px 0", color: "#0d47a1" }}>
-                ✈️ ข้อมูลตั๋วเครื่องบินแนะแนวตามงบ
+                ✈️ ข้อมูลตั๋วเครื่องบินตามงบ
               </h3>
               <p style={{ margin: "5px 0" }}>
                 🛫 <b>ประเภทตั๋ว:</b> {tripResult.recommendedFlight.flightType}
@@ -270,7 +268,7 @@ function App() {
                 {tripResult.recommendedFlight.suggestedAirlines}
               </p>
               <p style={{ margin: "5px 0" }}>
-                💵 <b>ราคาไป-กลับประมาณการ:</b>{" "}
+                💵 <b>ราคาไป-กลับโดยประมาณ:</b>{" "}
                 <span style={{ color: "#2e7d32", fontWeight: "bold" }}>
                   {tripResult.recommendedFlight.estimatedFlightCost}
                 </span>
@@ -317,7 +315,19 @@ function App() {
                     </p>
                     <small style={{ color: "#999" }}>
                       💵 คาดการณ์ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:{" "}
-                      {act.latitude}, {act.longitude}
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${act.latitude},${act.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#2196f3",
+                          textDecoration: "underline",
+                          fontWeight: "bold",
+                          marginLeft: "3px"
+                        }}
+                      >
+                        {act.latitude}, {act.longitude} (คลิกเปิดแผนที่ 🗺️)
+                      </a>
                     </small>
                   </li>
                 ))}
