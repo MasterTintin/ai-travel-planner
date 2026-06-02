@@ -2,25 +2,46 @@ import React, { useState } from "react";
 import axios from "axios";
 
 function App() {
-  // 1. สร้าง State สำหรับเก็บข้อมูลที่ผู้ใช้กรอกในฟอร์ม
+  // 1. อัปเดต State เพิ่มฟิลด์เที่ยวบินและวันที่ออกเดินทาง
   const [formData, setFormData] = useState({
-    destination: "",
+    destination: "Japan",
+    departureDate: "",
     days: 1,
     budget: "Economy",
+    airlinePreference: "Full Service", // เพิ่มตัวเลือกระดับสายการบินตามงบ
     interests: ""
   });
 
-  // 2. สร้าง State สำหรับเก็บผลลัพธ์ที่ได้มาจาก Gemini และเก็บสถานะการโหลด
+  // 2. State เก็บผลลัพธ์และสถานะการทำงาน
   const [tripResult, setTripResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ฟังก์ชันอัปเดตค่าในฟอร์มเวลาพิมพ์
+  // รายชื่อประเทศยอดฮิตทั่วโลกเพื่อทำ Dropdown
+  const countries = [
+    "Japan",
+    "South Korea",
+    "Thailand",
+    "Singapore",
+    "Taiwan",
+    "Hong Kong",
+    "China",
+    "Vietnam",
+    "United Kingdom",
+    "United States",
+    "France",
+    "Germany",
+    "Switzerland",
+    "Italy",
+    "Australia"
+  ];
+
+  // ฟังก์ชันอัปเดตค่าในฟอร์มเวลาพิมพ์หรือเลือก
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 3. ฟังก์ชันตัวเด็ด: ยิงถล่มข้ามไปหา server
+  // 3. ฟังก์ชันยิงข้ามท่อข้ามเซิร์ฟเวอร์
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -28,6 +49,7 @@ function App() {
     setTripResult(null);
 
     try {
+      // ส่ง formData ก้อนใหม่ที่ข้อมูลแน่นกว่าเดิมไปให้ backend
       const response = await axios.post(
         "http://127.0.0.1:5000/api/generate-trip",
         formData
@@ -35,7 +57,9 @@ function App() {
       setTripResult(response.data);
     } catch (err) {
       console.error("Frontend Fetch Error:", err);
-      setError(err.response?.data?.error || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      setError(
+        err.response?.data?.error || "เกิดข้อผิดพลาดในการเชื่อมต่อหลังบ้าน"
+      );
     } finally {
       setLoading(false);
     }
@@ -50,7 +74,9 @@ function App() {
         fontFamily: "sans-serif"
       }}
     >
-      <h1 style={{ textAlign: "center" }}>🤖 AI Travel Planner 🚀</h1>
+      <h1 style={{ textAlign: "center" }}>
+        🤖 AI Travel Planner & Flight Matcher 🚀
+      </h1>
 
       {/* ส่วนของฟอร์มรับ Input */}
       <form
@@ -62,21 +88,43 @@ function App() {
           marginBottom: "30px"
         }}
       >
+        {/* เลือกประเทศจุดหมายปลายทาง */}
         <div>
-          <label>จุดหมายปลายทาง (Destination): </label>
-          <input
-            type="text"
+          <label style={{ fontWeight: "bold" }}>
+            📍 จุดหมายปลายทาง (Destination Country):{" "}
+          </label>
+          <select
             name="destination"
             value={formData.destination}
             onChange={handleChange}
-            placeholder="เช่น Tokyo, Japan หรือ Chiang Mai"
+            style={{ width: "100%", padding: "8px", marginTop: "5px" }}
+          >
+            {countries.map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* วันที่ออกเดินทาง */}
+        <div>
+          <label style={{ fontWeight: "bold" }}>
+            📅 วันที่ออกเดินทาง (Departure Date):{" "}
+          </label>
+          <input
+            type="date"
+            name="departureDate"
+            value={formData.departureDate}
+            onChange={handleChange}
             required
-            style={{ width: "100%", padding: "8px" }}
+            style={{ width: "100%", padding: "8px", marginTop: "5px" }}
           />
         </div>
 
+        {/* จำนวนวัน */}
         <div>
-          <label>จำนวนวัน (Days): </label>
+          <label style={{ fontWeight: "bold" }}>จำนวนวัน (Days): </label>
           <input
             type="number"
             name="days"
@@ -85,17 +133,44 @@ function App() {
             value={formData.days}
             onChange={handleChange}
             required
-            style={{ width: "100%", padding: "8px" }}
+            style={{ width: "100%", padding: "8px", marginTop: "5px" }}
           />
         </div>
 
+        {/* สไตล์เที่ยวบินตามงบประมาณ */}
         <div>
-          <label>งบประมาณ (Budget Level): </label>
+          <label style={{ fontWeight: "bold" }}>
+            ✈️ รูปแบบสายการบิน (Flight Preference):{" "}
+          </label>
+          <select
+            name="airlinePreference"
+            value={formData.airlinePreference}
+            onChange={handleChange}
+            style={{ width: "100%", padding: "8px", marginTop: "5px" }}
+          >
+            <option value="Low-cost">
+              Low-cost (สายการบินประหยัด เช่น AirAsia, Scoot)
+            </option>
+            <option value="Full Service">
+              Full Service (บริการเต็มรูปแบบ เช่น THAI, ANA)
+            </option>
+            <option value="Luxury/First Class">
+              Luxury/First Class (พรีเมียมหรูหรา เช่น Emirates, Singapore
+              Airlines)
+            </option>
+          </select>
+        </div>
+
+        {/* งบประมาณรวม */}
+        <div>
+          <label style={{ fontWeight: "bold" }}>
+            💰 งบประมาณรวม (Total Trip Budget):{" "}
+          </label>
           <select
             name="budget"
             value={formData.budget}
             onChange={handleChange}
-            style={{ width: "100%", padding: "8px" }}
+            style={{ width: "100%", padding: "8px", marginTop: "5px" }}
           >
             <option value="Economy">Economy (ประหยัด)</option>
             <option value="Standard">Standard (ปานกลาง)</option>
@@ -103,14 +178,22 @@ function App() {
           </select>
         </div>
 
+        {/* ความสนใจ / ไลฟ์สไตล์ */}
         <div>
-          <label>ความสนใจ / ไลฟ์สไตล์ (Interests): </label>
+          <label style={{ fontWeight: "bold" }}>
+            ความสนใจ / ไลฟ์สไตล์ (Interests):{" "}
+          </label>
           <textarea
             name="interests"
             value={formData.interests}
             onChange={handleChange}
             placeholder="เช่น Anime, Local food, Photography, Shopping"
-            style={{ width: "100%", padding: "8px", height: "80px" }}
+            style={{
+              width: "100%",
+              padding: "8px",
+              height: "80px",
+              marginTop: "5px"
+            }}
           />
         </div>
 
@@ -128,8 +211,8 @@ function App() {
           }}
         >
           {loading
-            ? "กำลังให้ AI ปั้นตารางเที่ยว... 🧠"
-            : "วางแผนเที่ยวให้ฉันเลย! 🔥"}
+            ? "กำลังให้ AI จัดแจงตั๋วเครื่องบินและปั้นตารางเที่ยว... 🧠✈️"
+            : "ค้นหาเที่ยวบินและวางแผนเที่ยวได้เลย! 🔥"}
         </button>
       </form>
 
@@ -139,7 +222,8 @@ function App() {
             color: "red",
             padding: "10px",
             background: "#fde8e8",
-            borderRadius: "5px"
+            borderRadius: "5px",
+            marginBottom: "20px"
           }}
         >
           ⚠️ {error}
@@ -159,10 +243,46 @@ function App() {
           <h2>✨ ชื่อทริป: {tripResult.tripName}</h2>
           <p>
             📍 <b>ปลายทาง:</b> {tripResult.destination} | ⏳ <b>เวลา:</b>{" "}
-            {tripResult.totalDays} วัน | 💰 <b>ระดับงบ:</b>{" "}
+            {tripResult.totalDays} วัน | 💰 <b>ระดับงบกิจกรรม:</b>{" "}
             {tripResult.budgetLevel}
           </p>
-          <hr />
+
+          {/* ส่วนแสดงผลเที่ยวบินแนะนำจาก AI */}
+          {tripResult.recommendedFlight && (
+            <div
+              style={{
+                background: "#e3f2fd",
+                padding: "15px",
+                borderRadius: "6px",
+                marginBottom: "25px",
+                borderLeft: "5px solid #2196f3",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+              }}
+            >
+              <h3 style={{ margin: "0 0 10px 0", color: "#0d47a1" }}>
+                ✈️ ข้อมูลตั๋วเครื่องบินแนะแนวตามงบ
+              </h3>
+              <p style={{ margin: "5px 0" }}>
+                🛫 <b>ประเภทตั๋ว:</b> {tripResult.recommendedFlight.flightType}
+              </p>
+              <p style={{ margin: "5px 0" }}>
+                🏢 <b>สายการบินที่แนะ:</b>{" "}
+                {tripResult.recommendedFlight.suggestedAirlines}
+              </p>
+              <p style={{ margin: "5px 0" }}>
+                💵 <b>ราคาไป-กลับประมาณการ:</b>{" "}
+                <span style={{ color: "#2e7d32", fontWeight: "bold" }}>
+                  {tripResult.recommendedFlight.estimatedFlightCost}
+                </span>
+              </p>
+              <p style={{ margin: "5px 0", fontSize: "14px", color: "#555" }}>
+                💡 <b>คำแนะนำเพิ่มเติม:</b>{" "}
+                {tripResult.recommendedFlight.flightTips}
+              </p>
+            </div>
+          )}
+
+          <hr style={{ marginBottom: "20px" }} />
 
           {tripResult.itinerary?.map((item, idx) => (
             <div
