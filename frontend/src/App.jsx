@@ -338,7 +338,7 @@ function App() {
                 fontWeight: "500"
               }}
             >
-              ⏳ รอการเชื่อมต่อจากหลังบ้าน (Port 5000)...
+              ⏳ รอการเชื่อมต่อจาก Port 5000...
             </div>
           ) : (
             <table
@@ -459,6 +459,36 @@ function App() {
               <p style={{ margin: "5px 0", fontSize: "14px", color: "#555" }}>
                 💡 <b>คำแนะนำ:</b> {tripResult.recommendedFlight.flightTips}
               </p>
+
+              {/* 🛠️ เพิ่มปุ่มจองตั๋วข้ามไป Trip.com ตรงจุดนี้! */}
+              {tripResult.recommendedFlight.bookingUrl && (
+                <div style={{ marginTop: "15px" }}>
+                  <a
+                    href={tripResult.recommendedFlight.bookingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-block",
+                      padding: "10px 20px",
+                      backgroundColor: "#0064d2",
+                      color: "white",
+                      fontWeight: "bold",
+                      textDecoration: "none",
+                      borderRadius: "6px",
+                      boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+                      transition: "background-color 0.2s"
+                    }}
+                    onMouseOver={(e) =>
+                      (e.target.style.backgroundColor = "#0053b3")
+                    }
+                    onMouseOut={(e) =>
+                      (e.target.style.backgroundColor = "#0064d2")
+                    }
+                  >
+                    ✈️ เช็กและจองตั๋วเครื่องบินจริงบน Trip.com 🌐
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
