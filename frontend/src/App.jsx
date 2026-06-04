@@ -19,8 +19,6 @@ function App() {
   // State อัตราแลกเปลี่ยน
   const [exchangeData, setExchangeData] = useState(null);
   const [ratesLoading, setRatesLoading] = useState(true);
-
-  // === State สำหรับคุมการเปิด-ปิดสลับหน้าจอ (Conditional Rendering) ===
   const [activePage, setActivePage] = useState("home");
 
   // ดึงอัตราแลกเปลี่ยนจาก Backend Port 5000
@@ -40,6 +38,7 @@ function App() {
     fetchRates();
   }, []);
 
+  // เพิ่ม Animation Styles เข้าไป
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -92,7 +91,7 @@ function App() {
           "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์หลังบ้าน"
       );
     } finally {
-      loading && setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -106,7 +105,7 @@ function App() {
         color: "#333"
       }}
     >
-      {/* === ตรรกะสลับหน้าจอ === */}
+      {/* === สลับหน้าจอ === */}
       {activePage === "budget" && tripResult ? (
         <BudgetSummary
           tripResult={tripResult}
@@ -320,7 +319,7 @@ function App() {
               </form>
             </div>
 
-            {/* === โซนอัตราแลกเปลี่ยน === */}
+            {/* === พื้นที่อัตราแลกเปลี่ยน === */}
             <div
               style={{
                 flex: "1",
@@ -375,20 +374,23 @@ function App() {
                   }}
                 >
                   <thead>
-                    <tr
-                      style={{
-                        borderBottom: "2px solid #eee",
-                        textAlign: "left"
-                      }}
-                    >
-                      <th style={{ padding: "8px 4px", color: "#555" }}>
-                        สกุลเงิน
-                      </th>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
                       <th
                         style={{
-                          padding: "8px 4px",
-                          color: "#555",
-                          textAlign: "right"
+                          padding: "10px 8px",
+                          textAlign: "left",
+                          color: "#666"
+                        }}
+                      >
+                        สกุลเงิน
+                      </th>
+                      <th style={{ padding: "10px 0", width: "10%" }}></th>{" "}
+                      {/* ช่องว่างตรงกลางสำหรับหัวตารางเพื่อรับเครื่องหมาย = */}
+                      <th
+                        style={{
+                          padding: "10px 8px",
+                          textAlign: "right",
+                          color: "#666"
                         }}
                       >
                         Rate ราคา (THB)
@@ -396,38 +398,84 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {exchangeData?.rates?.map((item, index) => (
-                      <tr
-                        key={index}
-                        style={{
-                          borderBottom: "1px solid #f5f5f5",
-                          backgroundColor: index % 2 === 0 ? "#fafafa" : "#fff"
-                        }}
-                      >
-                        <td style={{ padding: "10px 4px", fontWeight: "500" }}>
-                          {item.name}
-                        </td>
-                        <td
+                    {exchangeData?.rates?.map((item, index) => {
+                      // 1. จัดการเรื่องฐานเรตเงิน (คำนวณให้เป็นค่าต่อ 1 หน่วยสกุลเงินนั้นๆ เสมอ)
+                      let displayRate = item.rate;
+
+                      if (item.code === "JPY") {
+                        // ปกติ API จะให้เรตต่อ 100 JPY (เช่น 20.4661) -> หาร 100 เพื่อให้ได้ต่อ 1 JPY
+                        displayRate = (item.rate / 100).toFixed(6);
+                      } else if (item.code === "KRW") {
+                        // ปกติ API จะให้เรตต่อ 100 KRW (เช่น 2.1444) -> หาร 100 เพื่อให้ได้ต่อ 1 KRW
+                        displayRate = (item.rate / 100).toFixed(6);
+                      } else if (item.code === "VND") {
+                        // ปกติ API จะให้เรตต่อ 1,000 VND (เช่น 1.2474) -> หาร 1000 เพื่อให้ได้ต่อ 1 VND
+                        displayRate = (item.rate / 1000).toFixed(6);
+                      } else {
+                        // สกุลเงินอื่นๆ เช่น USD, EUR, SGD เป็นต่อ 1 หน่วยอยู่แล้ว โชว์ทศนิยม 4 ตำแหน่งปกติ
+                        displayRate = Number(item.rate).toFixed(4);
+                      }
+
+                      return (
+                        <tr
+                          key={index}
                           style={{
-                            padding: "10px 4px",
-                            textAlign: "right",
-                            color: "#2e7d32",
-                            fontWeight: "bold"
+                            borderBottom: "1px solid #f5f5f5",
+                            backgroundColor:
+                              index % 2 === 0 ? "#fafafa" : "#fff"
                           }}
                         >
-                          {item.code === "VND" || item.code === "KRW"
-                            ? `≈ ${item.rate} บาท / 1 หน่วย`
-                            : `${item.rate} บาท`}
-                        </td>
-                      </tr>
-                    ))}
+                          {/* 1. คอลัมน์ซ้าย: แสดงชื่อหน่วยสกุลเงิน */}
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: "500",
+                              color: "#333",
+                              width: "40%"
+                            }}
+                          >
+                            1 {item.code}{" "}
+                            <span style={{ color: "#666", fontSize: "13px" }}>
+                              ({item.name.replace(` (${item.code})`, "")})
+                            </span>
+                          </td>
+
+                          {/* 2. คอลัมน์กลาง: เพิ่มเครื่องหมาย = */}
+                          <td
+                            style={{
+                              padding: "12px 0",
+                              textAlign: "center",
+                              color: "#999",
+                              fontWeight: "500",
+                              width: "10%"
+                            }}
+                          >
+                            =
+                          </td>
+
+                          {/* 3. คอลัมน์ขวา: แสดงมูลค่าเงินบาท */}
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              textAlign: "right",
+                              color: "#2e7d32",
+                              fontWeight: "bold",
+                              whiteSpace: "nowrap",
+                              width: "50%"
+                            }}
+                          >
+                            {displayRate} THB
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
             </div>
           </div>
 
-          {/* === โซนแสดงผลลัพธ์ === */}
+          {/* === พื้นที่แสดงผลลัพธ์ === */}
           {error && (
             <div
               style={{
@@ -524,7 +572,7 @@ function App() {
                 </div>
               )}
 
-              {/* === 🛠️ 3. ปุ่มกดสลับไปหน้าดูงบประมาณแบบสรุปยอด === */}
+              {/* === 3. ปุ่มกดสลับไปหน้าดูงบประมาณแบบสรุปยอด === */}
               <div style={{ marginTop: "25px", marginBottom: "25px" }}>
                 <button
                   onClick={() => setActivePage("budget")}
@@ -593,7 +641,7 @@ function App() {
                         <small style={{ color: "#999" }}>
                           💵 ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:
                           <a
-                            href={`https://www.google.com/maps?q=${act.latitude},${act.longitude}`}
+                            href={`https://www.google.com/maps/search/?api=1&query=${act.latitude},${act.longitude}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
