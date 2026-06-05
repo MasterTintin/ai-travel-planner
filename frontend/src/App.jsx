@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // เพิ่มการนำเข้า useRef
 import axios from "axios";
 import BudgetSummary from "./BudgetSummary";
+import jsPDF from "jspdf"; // นำเข้า jsPDF สำหรับสร้างไฟล์
+import html2canvas from "html2canvas"; //  นำเข้า html2canvas สำหรับจับภาพองค์ประกอบ
 
 function App() {
   const [formData, setFormData] = useState({
@@ -9,20 +11,21 @@ function App() {
     days: 1,
     budget: "Economy",
     airlinePreference: "Full Service",
-    travelStyle: "Sightseeing", // รูปแบบสไตล์หลักสากล
+    travelStyle: "Sightseeing",
     interests: ""
   });
 
   const [tripResult, setTripResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // State อัตราแลกเปลี่ยน
   const [exchangeData, setExchangeData] = useState(null);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [activePage, setActivePage] = useState("home");
 
-  // ดึงอัตราแลกเปลี่ยนจาก Backend Port 5000
+  // สร้าง Ref สำหรับจับเฉพาะส่วนที่เป็นตารางเดินทางรายวัน
+  const itineraryContainerRef = useRef(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
   useEffect(() => {
     const fetchRates = async () => {
       try {
@@ -48,6 +51,52 @@ function App() {
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
+
+  // Format จับเนื้อหาหน้าจอใน Ref เด้งเป็นไฟล์ PDF แบบคมชัดสูงและรองรับหลายหน้า
+  const handleExportItineraryPDF = async () => {
+    const element = itineraryContainerRef.current;
+    if (!element) return;
+
+    try {
+      setIsExportingPDF(true);
+
+      const canvas = await html2canvas(element, {
+        scale: 1.8,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // พิมพ์แผ่นหน้าแรกสุด
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const destinationName =
+        tripResult?.destination?.replace(/[^a-zA-Z0-9]/g, "_") || "Trip";
+      pdf.save(`Itinerary_${destinationName}.pdf`);
+    } catch (pdfError) {
+      console.error("❌ เกิดข้อผิดพลาดในการสร้างไฟล์ :", pdfError);
+      alert("ไม่สามารถสร้างไฟล์ตารางการเดินทาง ได้ในขณะนี้");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const countries = [
     "Japan",
@@ -105,8 +154,6 @@ function App() {
         color: "#333"
       }}
     >
-      {/* === สลับหน้าจอ === */}
-
       {activePage === "budget" ? (
         tripResult ? (
           <BudgetSummary
@@ -636,56 +683,101 @@ function App() {
                 }}
               />
 
-              {tripResult.itinerary?.map((item, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    marginBottom: "20px",
-                    padding: "15px",
-                    background: "white",
-                    borderRadius: "6px",
-                    boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
-                  }}
-                >
-                  <h3 style={{ color: "#ff5a5f", marginTop: "0" }}>
-                    📅 วันที่ {item.day} - {item.theme}
-                  </h3>
-                  <ul style={{ paddingLeft: "20px", margin: "0" }}>
-                    {item.activities?.map((act, actIdx) => (
-                      <li key={actIdx} style={{ marginBottom: "12px" }}>
-                        <b>⏰ {act.time}</b> -{" "}
-                        <span style={{ color: "#333", fontWeight: "bold" }}>
-                          {act.locationName}
-                        </span>
-                        <p
-                          style={{
-                            margin: "4px 0",
-                            color: "#666",
-                            fontSize: "14px"
-                          }}
-                        >
-                          {act.description}
-                        </p>
-                        <small style={{ color: "#999" }}>
-                          💵 ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:
-                          <a
-                            href={`http://maps.google.com/?q=${act.latitude},${act.longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+              {/* ใส่บล็อกตารางเวลาใส่ไว้ใน ref เพื่อให้เวลาแคปภาพเจาะจงเฉพาะ Itinerary */}
+              <div
+                ref={itineraryContainerRef}
+                style={{
+                  background: "#ffffff",
+                  padding: "15px",
+                  borderRadius: "8px"
+                }}
+              >
+                {tripResult.itinerary?.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginBottom: "20px",
+                      padding: "15px",
+                      background: "white",
+                      borderRadius: "6px",
+                      boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+                      pageBreakInside: "avoid",
+                      breakInside: "avoid"
+                    }}
+                  >
+                    <h3 style={{ color: "#ff5a5f", marginTop: "0" }}>
+                      📅 วันที่ {item.day} - {item.theme}
+                    </h3>
+                    <ul style={{ paddingLeft: "20px", margin: "0" }}>
+                      {item.activities?.map((act, actIdx) => (
+                        <li key={actIdx} style={{ marginBottom: "12px" }}>
+                          <b>⏰ {act.time}</b> -{" "}
+                          <span style={{ color: "#333", fontWeight: "bold" }}>
+                            {act.locationName}
+                          </span>
+                          <p
                             style={{
-                              color: "#2196f3",
-                              fontWeight: "bold",
-                              marginLeft: "4px"
+                              margin: "4px 0",
+                              color: "#666",
+                              fontSize: "14px"
                             }}
                           >
-                            {act.latitude}, {act.longitude} (คลิกเปิดแผนที่ 🗺️)
-                          </a>
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+                            {act.description}
+                          </p>
+                          <small style={{ color: "#999" }}>
+                            💵 ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:
+                            <a
+                              href={`http://googleusercontent.com/maps.google.com/?q=${act.latitude},${act.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "#2196f3",
+                                fontWeight: "bold",
+                                marginLeft: "4px"
+                              }}
+                            >
+                              {act.latitude}, {act.longitude} (คลิกเปิดแผนที่
+                              🗺️)
+                            </a>
+                          </small>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              {/* ปุ่มสร้าง PDF สำหรับตารางเดินทาง */}
+              <div
+                style={{
+                  marginTop: "30px",
+                  textAlign: "center",
+                  borderTop: "2px dashed #e0e0e0",
+                  paddingTop: "20px"
+                }}
+              >
+                <button
+                  onClick={handleExportItineraryPDF}
+                  disabled={isExportingPDF}
+                  style={{
+                    width: "100%",
+                    padding: "15px",
+                    backgroundColor: isExportingPDF ? "#bdc3c7" : "#0284c7",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: isExportingPDF ? "not-allowed" : "pointer",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  {isExportingPDF
+                    ? "⏳ กำลังวาดสไลด์แปลงตารางเดินทางเป็น PDF..."
+                    : "📄 ดาวน์โหลดแผนการเดินทางรายวันทั้งหมด (PDF)"}
+                </button>
+              </div>
             </div>
           )}
         </>
