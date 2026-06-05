@@ -21,14 +21,13 @@ if not GOOGLE_API_KEY:
 else:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-# =====================================================================
-# ฟังก์ชันช่วยเหลือ สำหรับระบบตั๋วเครื่องบิน
-# =====================================================================
 def get_destination_iata(destination_name):
     """แปลงชื่อประเทศ/เมืองจากหน้าบ้าน ให้เป็นรหัสสนามบินหลัก IATA 3 ตัว"""
     mapping = {
         "japan": "NRT",          # โตเกียว นาริตะ
         "ญี่ปุ่น": "NRT",
+        "taiwan": "TPE",         # ไทเป เถาหยวน
+        "ไต้หวัน": "TPE",
         "south korea": "ICN",    # โซล อินชอน
         "เกาหลีใต้": "ICN",
         "singapore": "SIN",      # สิงคโปร์
@@ -44,7 +43,7 @@ def get_destination_iata(destination_name):
         "usa": "LAX",            # ลอสแอนเจลิส
         "สหรัฐฯ": "LAX"
     }
-    return mapping.get(destination_name.lower().strip(), "NRT")
+    return mapping.get(destination_name.lower().strip(), "TPE")
 
 def get_realtime_flight_data(destination_code, departure_date):
     """ยิงดึงข้อมูลราคาตั๋วเครื่องบินที่ถูกที่สุดขาเดียวจากกรุงเทพฯ (BKK)"""
@@ -85,7 +84,6 @@ def get_exchange_rates():
         if data.get("result") == "success":
             rates = data.get("rates", {})
             
-            # โครงสร้าง Mapping
             target_currencies = {
                 "JPY": {"name": "ญี่ปุ่น (JPY)", "base": 100},       
                 "KRW": {"name": "เกาหลีใต้ (KRW)", "base": 100},     
@@ -101,21 +99,15 @@ def get_exchange_rates():
             formatted_rates = []
             for code, config in target_currencies.items():
                 if code in rates:
-                    # คำนวณหาค่าเงินบาทต่อ 1 หน่วยก่อน
                     thb_per_unit = 1 / rates[code]
-                    
-                    # คูณด้วยฐานหน่วย (base)
                     final_rate = thb_per_unit * config["base"]
-                    
-                    # ปรับทศนิยมให้เหมาะสม
                     rate_value = round(final_rate, 4)
                     
-                    # ส่งรายละเอียดโครงสร้างชัดเจนกลับไปให้หน้าบ้าน
                     formatted_rates.append({
                         "code": code,
                         "name": config["name"],
                         "baseUnit": f"{config['base']:,} {code}", 
-                        "rate": rate_value                        
+                        "rate": rate_value                                
                     })
                     
             return jsonify({
@@ -130,7 +122,7 @@ def get_exchange_rates():
         return jsonify({"error": f"Backend Error: {str(e)}"}), 500
 
 # =====================================================================
-# API 2: สร้างทริปละเอียด + ผสมข้อมูลตั๋วเครื่องบิน Real-time จาก API
+# API 2: สร้างทริปแบบละเอียด + ผสมข้อมูลตั๋วเครื่องบิน Real-time จาก API
 # =====================================================================
 @app.route('/api/generate-trip', methods=['POST'])
 def generate_trip():
@@ -154,9 +146,13 @@ def generate_trip():
             suggested_cost_str = f"{real_flight['price']:,} THB (ราคา Real-time ล่าสุด)"
             suggested_airline_str = real_flight['airline']
         else:
-            flight_context = "ไม่พบข้อมูลตั๋วแบบ Real-time ให้คุณสุ่มราคาจริงตามสไตล์ตลาดปัจจุบันมาแทน"
-            suggested_cost_str = "12,000 - 22,000 THB (ราคาโดยประมาณ)"
-            suggested_airline_str = "Thai Airways, Japan Airlines, AirAsia"
+            flight_context = "ไม่พบข้อมูลตั๋วแบบ Real-time"
+            if dest_iata == "TPE":
+                suggested_cost_str = "8,500 - 15,000 THB (ราคาโดยประมาณ)"
+                suggested_airline_str = "EVA Air, China Airlines, Starlux Airlines, Thai Airways"
+            else:
+                suggested_cost_str = "12,000 - 22,000 THB (ราคาโดยประมาณ)"
+                suggested_airline_str = "Thai Airways, Japan Airlines, AirAsia"
 
         # ดีไซน์ Deep Link ไปเว็บ Trip.com ขาเดียว
         trip_deep_link = f"https://th.trip.com/flights/bangkok-to-anywhere/tickets-bkk-{dest_iata.lower()}?dDate={departure_date}"
@@ -167,7 +163,7 @@ def generate_trip():
         โดยอ้างอิงจากข้อมูลจริง สถานที่จริงที่มีอยู่จริงบนแผนที่ตามเงื่อนไขของผู้ใช้
         
         ข้อมูลเงื่อนไขของผู้ใช้:
-        - ประเทศจุดหมายปลายทาง: {destination} (รหัสสนามบิน: {dest_iata})
+        - ประเทศจุดหมายปลายทาง: {destination} (รหัสสนามบินเป้าหมายหลัก: {dest_iata})
         - จำนวนวันเดินทาง: {days} วัน
         - วันที่ออกเดินทาง: {departure_date}
         - ระดับงบประมาณ: {budget}
@@ -178,10 +174,11 @@ def generate_trip():
         - {flight_context}
 
         กฎในการสร้างเนื้อหา:
-        1. ห้ามเขียนคำบรรยายสั้นๆ ห้วนๆ ต้องระบุชื่อสถานที่จริงเสมอ (เช่น 'วัดเซนโซจิ ย่านอาซากุสะ')
+        1. ห้ามเขียนคำบรรยายสั้นๆ ห้วนๆ ต้องระบุชื่อสถานที่จริงเสมอ (เช่น 'ตลาดกลางคืนซีเหมินติง กรุงไทเป')
         2. ในแต่ละวัน จะต้องจัดทริปให้ละเอียดแบ่งออกเป็น 4 ช่วงเวลาเสมอ ได้แก่ '09:30' (เช้า), '12:00' (มื้อเที่ยง), '14:30' (บ่ายแก่ๆ), และ '18:30' (มื้อเย็น)
         3. ในฟิลด์ 'description' ให้เขียนอธิบายเจาะลึก 3-4 ประโยค บรรยายบรรยากาศและกิจกรรมให้สอดรับไลฟ์สไตล์ {interests} ของผู้ใช้
         4. แนะนำเที่ยวบินโดยอ้างอิงสายการบินและเรทราคาที่ส่งไปให้ในระบบดิบด้านบน และนำลิงก์จองนี้: '{trip_deep_link}' ยัดใส่ในฟิลด์ 'bookingUrl'
+        5. คำเตือนเรื่องรหัสสนามบิน: ในฟิลด์ 'flightTips' ให้เขียนอธิบายให้ตรงตามตัวแปรประเทศที่เลือกจริงเท่านั้น เช่น ถ้าจุดหมายปลายทางคือ {destination} และรหัสสนามบินคือ {dest_iata} ห้ามนำชื่อสนามบินหรือรหัสของประเทศอื่น (เช่น NRT/นาริตะ ของญี่ปุ่น) มาใส่เด็ดขาด! ให้เขียนแนะนำที่เกี่ยวกับ {dest_iata} เท่านั้น!!
 
         คุณต้องตอบกลับมาเป็นข้อมูลรูปแบบ JSON เท่านั้น ห้ามมีข้อความเกริ่นนำ หรือปิดท้าย ห้ามใส่เครื่องหมาย ```json ครอบ โครงสร้าง JSON ต้องเป็นดังนี้:
         {{
@@ -194,7 +191,7 @@ def generate_trip():
             "suggestedAirlines": "{suggested_airline_str}",
             "estimatedFlightCost": "{suggested_cost_str}",
             "bookingUrl": "{trip_deep_link}",
-            "flightTips": "แนะนำตรวจสอบมาตรการกระเป๋า และกดจองผ่านลิงก์ Trip.com ที่เตรียมไว้ให้เพื่อตรวจสอบเวลาบินจริงล่วงหน้า"
+            "flightTips": "เขียนคำแนะนำที่อ้างอิงถึงประเทศ {destination} และรหัสสนามบิน {dest_iata} เท่านั้น โดยระบุให้ชัดเจนและแนะนำตรวจสอบเวลาบินจริงล่วงหน้าผ่านลิงก์"
           }},
           "itinerary": [
             {{
@@ -206,8 +203,8 @@ def generate_trip():
                   "locationName": "ชื่อสถานที่และย่านจริง",
                   "description": "คำบรรยายแผนการท่องเที่ยวแบบละเอียด 3-4 ประโยคชวนน่าติดตาม",
                   "estimatedCost": "150 - 300 THB หรือ ฟรี",
-                  "latitude": 35.123456,
-                  "longitude": 139.123456
+                  "latitude": 25.0330,
+                  "longitude": 121.5654
                 }}
               ]
             }}
