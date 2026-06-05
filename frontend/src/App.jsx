@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react"; // เพิ่มการนำเข้า useRef
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import BudgetSummary from "./BudgetSummary";
-import jsPDF from "jspdf"; // นำเข้า jsPDF สำหรับสร้างไฟล์
-import html2canvas from "html2canvas"; //  นำเข้า html2canvas สำหรับจับภาพองค์ประกอบ
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 function App() {
   const [formData, setFormData] = useState({
@@ -14,15 +14,14 @@ function App() {
     travelStyle: "Sightseeing",
     interests: ""
   });
-
   const [tripResult, setTripResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exchangeData, setExchangeData] = useState(null);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [activePage, setActivePage] = useState("home");
-
-  // สร้าง Ref สำหรับจับเฉพาะส่วนที่เป็นตารางเดินทางรายวัน
+  const [converterCurrency, setConverterCurrency] = useState("JPY");
+  const [foreignAmount, setForeignAmount] = useState("25000");
   const itineraryContainerRef = useRef(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
@@ -42,24 +41,12 @@ function App() {
     fetchRates();
   }, []);
 
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.textContent = `
-      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    `;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
-
-  // Format จับเนื้อหาหน้าจอใน Ref เด้งเป็นไฟล์ PDF แบบคมชัดสูงและรองรับหลายหน้า
   const handleExportItineraryPDF = async () => {
     const element = itineraryContainerRef.current;
     if (!element) return;
 
     try {
       setIsExportingPDF(true);
-
       const canvas = await html2canvas(element, {
         scale: 1.8,
         useCORS: true,
@@ -67,7 +54,6 @@ function App() {
         backgroundColor: "#ffffff",
         logging: false
       });
-
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const pdf = new jsPDF("p", "mm", "a4");
       const imgWidth = 210;
@@ -76,7 +62,6 @@ function App() {
       let heightLeft = imgHeight;
       let position = 0;
 
-      // พิมพ์แผ่นหน้าแรกสุด
       pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
@@ -96,6 +81,30 @@ function App() {
     } finally {
       setIsExportingPDF(false);
     }
+  };
+
+  const calculateToTHB = () => {
+    if (!exchangeData?.rates || !foreignAmount || isNaN(foreignAmount))
+      return "0.00";
+
+    const targetRateObj = exchangeData.rates.find(
+      (item) => item.code === converterCurrency
+    );
+    if (!targetRateObj) return "0.00";
+
+    let baseDivider = 1;
+    if (converterCurrency === "JPY" || converterCurrency === "KRW") {
+      baseDivider = 100;
+    } else if (converterCurrency === "VND") {
+      baseDivider = 1000;
+    }
+
+    const result =
+      (parseFloat(foreignAmount) / baseDivider) * targetRateObj.rate;
+    return result.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   };
 
   const countries = [
@@ -347,29 +356,17 @@ function App() {
                       backgroundColor: "#fff"
                     }}
                   >
-                    <option value="Sightseeing">
-                      Sightseeing & Culture (เน้นแลนด์มาร์ก ประวัติศาสตร์
-                      และจุดเช็กอินสำคัญ)
-                    </option>
-                    <option value="Foodie">
-                      Culinary & Local Food (สายกิน ตะลุยร้านดัง
-                      ลิ้มลองอาหารท้องถิ่น)
-                    </option>
-                    <option value="Nature & Adventure">
-                      Nature & Outdoor (สายธรรมชาติ อุทยาน เดินป่า
-                      กิจกรรมกลางแจ้ง)
-                    </option>
+                    <option value="Sightseeing">Sightseeing & Culture</option>
+                    <option value="Foodie">Culinary & Local Food</option>
+                    <option value="Nature & Adventure">Nature & Outdoor</option>
                     <option value="Shopping & Lifestyle">
-                      Shopping & Urban Life (สายช้อปปิ้ง แฟชั่น
-                      สำรวจเมืองหลวงและไลฟ์สไตล์คนเมือง)
+                      Shopping & Urban Life
                     </option>
                     <option value="Relaxation & Wellness">
-                      Relaxation & Leisure (สายชิล เน้นพักผ่อน ดื่มด่ำบรรยากาศ
-                      ไม่เร่งรีบ)
+                      Relaxation & Leisure
                     </option>
                     <option value="Arts & Entertainment">
-                      Arts, Nightlife & Entertainment (สายเสพศิลปะ พิพิธภัณฑ์
-                      แสงสี และความบันเทิง)
+                      Arts, Nightlife & Entertainment
                     </option>
                   </select>
                 </div>
@@ -423,7 +420,7 @@ function App() {
               </form>
             </div>
 
-            {/* === พื้นที่อัตราแลกเปลี่ยน === */}
+            {/* === พื้นที่อัตราแลกเปลี่ยน (ขวา) === */}
             <div
               style={{
                 flex: "1",
@@ -435,15 +432,7 @@ function App() {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
               }}
             >
-              <h3
-                style={{
-                  margin: "0 0 5px 0",
-                  color: "#333",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}
-              >
+              <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>
                 อัตราแลกเปลี่ยนรายวัน
               </h3>
               <p
@@ -463,104 +452,207 @@ function App() {
                     textAlign: "center",
                     padding: "30px",
                     color: "#ff5a5f",
-                    fontSize: "14px",
-                    fontWeight: "500"
+                    fontSize: "14px"
                   }}
                 >
                   ⏳ รอการเชื่อมต่อจาก Port 5000...
                 </div>
               ) : (
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: "14px"
-                  }}
-                >
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid #eee" }}>
-                      <th
-                        style={{
-                          padding: "10px 8px",
-                          textAlign: "left",
-                          color: "#666"
-                        }}
-                      >
-                        สกุลเงิน
-                      </th>
-                      <th style={{ padding: "10px 0", width: "10%" }}></th>
-                      <th
-                        style={{
-                          padding: "10px 8px",
-                          textAlign: "right",
-                          color: "#666"
-                        }}
-                      >
-                        Rate ราคา (THB)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exchangeData?.rates?.map((item, index) => {
-                      let displayRate = item.rate;
-                      if (item.code === "JPY" || item.code === "KRW") {
-                        displayRate = (item.rate / 100).toFixed(6);
-                      } else if (item.code === "VND") {
-                        displayRate = (item.rate / 1000).toFixed(6);
-                      } else {
-                        displayRate = Number(item.rate).toFixed(4);
-                      }
-
-                      return (
-                        <tr
-                          key={index}
+                <>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "14px"
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #eee" }}>
+                        <th
                           style={{
-                            borderBottom: "1px solid #f5f5f5",
-                            backgroundColor:
-                              index % 2 === 0 ? "#fafafa" : "#fff"
+                            padding: "10px 8px",
+                            textAlign: "left",
+                            color: "#666"
                           }}
                         >
-                          <td
+                          สกุลเงิน
+                        </th>
+                        <th style={{ padding: "10px 0", width: "10%" }}></th>
+                        <th
+                          style={{
+                            padding: "10px 8px",
+                            textAlign: "right",
+                            color: "#666"
+                          }}
+                        >
+                          Rate ราคา (THB)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exchangeData?.rates?.map((item, index) => {
+                        let displayRate = item.rate;
+                        if (item.code === "JPY" || item.code === "KRW") {
+                          displayRate = (item.rate / 100).toFixed(6);
+                        } else if (item.code === "VND") {
+                          displayRate = (item.rate / 1000).toFixed(6);
+                        } else {
+                          displayRate = Number(item.rate).toFixed(4);
+                        }
+
+                        return (
+                          <tr
+                            key={index}
                             style={{
-                              padding: "12px 8px",
-                              fontWeight: "500",
-                              color: "#333",
-                              width: "40%"
+                              borderBottom: "1px solid #f5f5f5",
+                              backgroundColor:
+                                index % 2 === 0 ? "#fafafa" : "#fff"
                             }}
                           >
-                            1 {item.code}{" "}
-                            <span style={{ color: "#666", fontSize: "13px" }}>
-                              ({item.name.replace(` (${item.code})`, "")})
-                            </span>
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 0",
-                              textAlign: "center",
-                              color: "#999",
-                              fontWeight: "500",
-                              width: "10%"
-                            }}
-                          >
-                            =
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              textAlign: "right",
-                              color: "#2e7d32",
-                              fontWeight: "bold",
-                              whiteSpace: "nowrap",
-                              width: "50%"
-                            }}
-                          >
-                            {displayRate} THB
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            <td
+                              style={{
+                                padding: "12px 8px",
+                                fontWeight: "500",
+                                color: "#333",
+                                width: "40%"
+                              }}
+                            >
+                              1 {item.code}{" "}
+                              <span style={{ color: "#666", fontSize: "13px" }}>
+                                ({item.name.replace(` (${item.code})`, "")})
+                              </span>
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 0",
+                                textAlign: "center",
+                                color: "#999",
+                                fontWeight: "500"
+                              }}
+                            >
+                              =
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 8px",
+                                textAlign: "right",
+                                color: "#2e7d32",
+                                fontWeight: "bold"
+                              }}
+                            >
+                              {displayRate} THB
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* เส้นคั่นก่อนเริ่มเครื่องคำนวณเงิน */}
+                  <hr
+                    style={{
+                      margin: "20px 0",
+                      border: "0",
+                      borderTop: "1px dashed #e0e0e0"
+                    }}
+                  />
+
+                  <div style={{ padding: "5px 0" }}>
+                    <h4
+                      style={{
+                        margin: "0 0 12px 0",
+                        color: "#333",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      🧮 เครื่องคำนวณเงินด่วน
+                    </h4>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        gap: "10px",
+                        marginBottom: "12px"
+                      }}
+                    >
+                      {/* 1. ช่องกรอกจำนวนเงินตราต่างประเทศ */}
+                      <input
+                        type="number"
+                        value={foreignAmount}
+                        onChange={(e) => setForeignAmount(e.target.value)}
+                        placeholder="ใส่จำนวนเงิน เช่น 25000"
+                        min="0"
+                        style={{
+                          flex: "2",
+                          padding: "10px",
+                          borderRadius: "6px",
+                          border: "1px solid #ccc",
+                          fontSize: "14px"
+                        }}
+                      />
+
+                      {/* 2. Dropdown สกุลเงิน */}
+                      <select
+                        value={converterCurrency}
+                        onChange={(e) => setConverterCurrency(e.target.value)}
+                        style={{
+                          flex: "1",
+                          padding: "10px",
+                          borderRadius: "6px",
+                          border: "1px solid #ccc",
+                          background: "#fff",
+                          fontSize: "14px",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {exchangeData?.rates?.map((item) => (
+                          <option key={item.code} value={item.code}>
+                            {item.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* กล่องแสดงผลลัพธ์แปลงเป็นเงินบาทไทย */}
+                    <div
+                      style={{
+                        background: "#f1f8e9",
+                        padding: "15px",
+                        borderRadius: "8px",
+                        border: "1px solid #dcedc8",
+                        textAlign: "center"
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          color: "#558b2f",
+                          display: "block",
+                          marginBottom: "4px",
+                          fontWeight: "500"
+                        }}
+                      >
+                        คิดเป็นเงินไทยประมาณ
+                      </span>
+                      <strong style={{ fontSize: "22px", color: "#2e7d32" }}>
+                        {calculateToTHB()}{" "}
+                        <span
+                          style={{
+                            fontSize: "16px",
+                            fontWeight: "bold",
+                            color: "#2e7d32",
+                            marginLeft: "4px"
+                          }}
+                        >
+                          THB
+                        </span>
+                      </strong>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -611,7 +703,7 @@ function App() {
                     ✈️ ข้อมูลตั๋วเครื่องบินแนะนำ
                   </h3>
                   <p style={{ margin: "5px 0" }}>
-                    🛫 <b>ประเภทตั๋ว:</b>{" "}
+                    ... 🛫 <b>ประเภทตั๋ว:</b>{" "}
                     {tripResult.recommendedFlight.flightType}
                   </p>
                   <p style={{ margin: "5px 0" }}>
@@ -654,7 +746,6 @@ function App() {
                 </div>
               )}
 
-              {/* === ปุ่มสรุปงบประมาณ === */}
               <div style={{ marginTop: "25px", marginBottom: "25px" }}>
                 <button
                   onClick={() => setActivePage("budget")}
@@ -683,7 +774,6 @@ function App() {
                 }}
               />
 
-              {/* ใส่บล็อกตารางเวลาใส่ไว้ใน ref เพื่อให้เวลาแคปภาพเจาะจงเฉพาะ Itinerary */}
               <div
                 ref={itineraryContainerRef}
                 style={{
@@ -747,7 +837,6 @@ function App() {
                 ))}
               </div>
 
-              {/* ปุ่มสร้าง PDF สำหรับตารางเดินทาง */}
               <div
                 style={{
                   marginTop: "30px",
@@ -769,12 +858,11 @@ function App() {
                     cursor: isExportingPDF ? "not-allowed" : "pointer",
                     fontSize: "16px",
                     fontWeight: "bold",
-                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                    transition: "all 0.2s ease"
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
                   }}
                 >
                   {isExportingPDF
-                    ? "⏳ กำลังวาดสไลด์แปลงตารางเดินทางเป็น PDF..."
+                    ? "⏳ กำลังแปลงตารางเดินทาง..."
                     : "📄 ดาวน์โหลดแผนการเดินทางรายวันทั้งหมด (PDF)"}
                 </button>
               </div>
