@@ -1,7 +1,13 @@
-import React from "react";
+import React, { useRef, useState } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
-  // === 1. ฟังก์ชันสกัดตัวเลขจาก String ===
+  // สร้าง Ref ไปครอบส่วน Content ที่เราต้องการจะ Render ลง PDF
+  const printRef = useRef(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // === ฟังก์ชันสกัดตัวเลขจาก String ===
   const extractNumber = (text) => {
     if (!text) return 0;
     const cleanedText = text.toString().replace(/,/g, "");
@@ -9,90 +15,107 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
     return match ? parseFloat(match[0]) : 0;
   };
 
-  // === 2. ค้นหา สกุลเงิน และ Exchange Rate ===
+  // === ค้นหา สกุลเงิน และ Exchange Rate ===
   const getCurrencyInfo = (destination) => {
     if (!destination || !exchangeData || !exchangeData.rates) {
       return { code: "THB", rate: 1 };
     }
-
     const dest = destination.toLowerCase();
-
     let match = exchangeData.rates.find((r) => {
       if (dest.includes("japan") && r.code === "JPY") return true;
       if (dest.includes("korea") && r.code === "KRW") return true;
-      if (dest.includes("singapore") && r.code === "SGD") return true;
-      if (dest.includes("taiwan") && r.code === "TWD") return true;
-      if (dest.includes("hong kong") && r.code === "HKD") return true;
-      if (dest.includes("china") && r.code === "CNY") return true;
-      if (dest.includes("vietnam") && r.code === "VND") return true;
-      if (
-        (dest.includes("uk") || dest.includes("united kingdom")) &&
-        r.code === "GBP"
-      )
-        return true;
-      if (
-        (dest.includes("us") || dest.includes("united states")) &&
-        r.code === "USD"
-      )
-        return true;
-      if (dest.includes("australia") && r.code === "AUD") return true;
-      if (
-        (dest.includes("france") ||
-          dest.includes("germany") ||
-          dest.includes("italy") ||
-          dest.includes("switzerland")) &&
-        r.code === "EUR"
-      )
-        return true;
       return false;
     });
 
     if (match) {
       let rawRate = parseFloat(match.rate);
-
       if ((match.code === "JPY" || match.code === "KRW") && rawRate > 1) {
         rawRate = rawRate / 100;
       }
-
       return { code: match.code, rate: rawRate };
     }
-
     return { code: "THB", rate: 1 };
   };
 
-  // === 3. ฟังก์ชันคำนวณแปลงค่าเงินเป็นบาท ===
   const calculateTHB = (foreignCost, currencyCode, rate) => {
     if (currencyCode === "THB" || !currencyCode) return foreignCost;
     return Math.round(foreignCost * rate);
   };
 
-  // === 4. ประมวลผลคำนวณงบประมาณ ===
+  // === ฟังก์ชันสำหรับการเปลี่ยน DOM เป็น PDF ===
+  const handleExportPDF = async () => {
+    const element = printRef.current;
+    if (!element) return;
+
+    try {
+      setIsExporting(true); // เปิดสถานะกำลังประมวลผล
+
+      // ตั้งค่าเพิ่มความเร็วในการ Render ภาพ และป้องกันการ Timeout ค้าง
+      const canvas = await html2canvas(element, {
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+
+      // ดึงภาพออกแบบสไตล์ JPEG ความคมชัด 90%
+      const imgData = canvas.toDataURL("image/jpeg", 0.9);
+
+      // สร้างเอกสาร PDF ขนาด A4 แนวตั้ง
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // ลูปสไลด์ตัดหน้ากรณีทริปยาวจนตารางล้นไปหน้า 2, 3
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // ปรับปรุงชื่อไฟล์
+      const cleanDest = destinationName.replace(/[^a-zA-Z0-9]/g, "_");
+      const fileName = `Trip_Plan_${cleanDest}.pdf`;
+
+      pdf.save(fileName);
+    } catch (error) {
+      console.error("❌ PDF Export Error:", error);
+      alert("ไม่สามารถสร้างไฟล์ PDF ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ประมวลผลคำนวณงบประมาณ
   const destinationName = tripResult?.destination || "ไม่ระบุปลายทาง";
   const { code: currencyCode, rate } = getCurrencyInfo(destinationName);
   const isTHB =
     destinationName.toLowerCase().includes("thailand") ||
     currencyCode === "THB";
 
-  // 4.1 ค่าตั๋วเครื่องบิน
   const flightCostRaw = extractNumber(
     tripResult?.recommendedFlight?.estimatedFlightCost
   );
   const flightCostTHB = flightCostRaw;
 
-  // 4.2 ค่ากิจกรรมรายวัน
   let totalActivitiesCostForeign = 0;
   let totalActivitiesCostTHB = 0;
 
   const dailyBreakdown =
     tripResult?.itinerary?.map((dayData) => {
       let dayTotalForeign = 0;
-
       dayData.activities?.forEach((act) => {
         dayTotalForeign += extractNumber(act.estimatedCost);
       });
-
       totalActivitiesCostForeign += dayTotalForeign;
-
       const dayTotalTHB = isTHB
         ? dayTotalForeign
         : calculateTHB(dayTotalForeign, currencyCode, rate);
@@ -114,265 +137,241 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
         maxWidth: "1000px",
         margin: "0 auto",
         padding: "20px",
-        fontFamily: "sans-serif",
-        color: "#2c3e50"
+        fontFamily: "sans-serif"
       }}
     >
-      {/* ส่วนหัวหน้าจอ */}
+      {/* ส่วน Action Bar บนสุด */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "30px",
-          borderBottom: "2px solid #bdc3c7",
-          paddingBottom: "15px"
+          marginBottom: "20px"
         }}
       >
-        <div>
-          <button
-            onClick={onBack}
-            style={{
-              background: "#7f8c8d",
-              color: "white",
-              border: "none",
-              padding: "8px 16px",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontWeight: "bold",
-              marginRight: "15px"
-            }}
-          >
-            ⬅️ กลับหน้าหลัก
-          </button>
-          <h1
-            style={{
-              display: "inline-block",
-              margin: 0,
-              fontSize: "24px",
-              color: "#2f4f4f"
-            }}
-          >
+        <button
+          onClick={onBack}
+          style={{
+            background: "#7f8c8d",
+            color: "white",
+            border: "none",
+            padding: "8px 16px",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontWeight: "bold"
+          }}
+        >
+          ⬅️ กลับหน้าหลัก
+        </button>
+
+        {/* ปุ่มดาวน์โหลด PDF เวอร์ชันอัปเกรดความเร็ว */}
+        <button
+          onClick={handleExportPDF}
+          disabled={isExporting}
+          style={{
+            background: isExporting ? "#bdc3c7" : "#1890ff",
+            color: "white",
+            border: "none",
+            padding: "8px 20px",
+            borderRadius: "4px",
+            cursor: isExporting ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
+          }}
+        >
+          {isExporting ? "กำลังสร้าง..." : "📄 ดาวน์โหลดแผนการเดินทาง (PDF)"}
+        </button>
+      </div>
+
+      {/* 4. แปะ ref ครอบ Content ทั้งหมด เพื่อสั่งพิมพ์ลง PDF */}
+      <div
+        ref={printRef}
+        style={{ padding: "15px", background: "white", borderRadius: "8px" }}
+      >
+        {/* ส่วนหัวแสดงชื่อประเทศ */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "30px",
+            borderBottom: "2px solid #bdc3c7",
+            paddingBottom: "15px"
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: "24px", color: "#2f4f4f" }}>
             📊 สรุปงบประมาณทริปอย่างละเอียด
           </h1>
-        </div>
-        <span
-          style={{
-            background: "#e2e8f0",
-            padding: "6px 12px",
-            borderRadius: "20px",
-            fontSize: "14px",
-            fontWeight: "bold",
-            color: "#4a5568"
-          }}
-        >
-          📍 {destinationName} ({tripResult?.totalDays || 0} วัน)
-        </span>
-      </div>
-
-      {/* แบนเนอร์ยอดรวม */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #485563, #29323c)",
-          color: "white",
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-          marginBottom: "30px",
-          textAlign: "center"
-        }}
-      >
-        <p
-          style={{
-            margin: "0 0 10px 0",
-            fontSize: "16px",
-            textTransform: "uppercase",
-            letterSpacing: "1px",
-            color: "#cbd5e1"
-          }}
-        >
-          ประมาณการค่าใช้จ่ายทั้งหมด (Grand Total)
-        </p>
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "42px",
-            fontWeight: "bold",
-            color: "#52c41a"
-          }}
-        >
-          ฿{grandTotalTHB.toLocaleString()}{" "}
-          <span style={{ fontSize: "20px", color: "#fff" }}>THB</span>
-        </h2>
-        {!isTHB && (
-          <p
-            style={{ margin: "10px 0 0 0", fontSize: "13px", color: "#94a3b8" }}
-          >
-            *คำนวณอ้างอิงจากอัตราแลกเปลี่ยนรายวันคงที่ ณ ปัจจุบัน (1{" "}
-            {currencyCode} = {rate} THB)
-          </p>
-        )}
-      </div>
-
-      {/* การ์ดแยกประเภท */}
-      <div
-        style={{
-          display: "flex",
-          gap: "20px",
-          flexWrap: "wrap",
-          marginBottom: "30px"
-        }}
-      >
-        <div
-          style={{
-            flex: 1,
-            minWidth: "280px",
-            background: "#f4f6f6",
-            padding: "20px",
-            borderRadius: "8px",
-            borderLeft: "5px solid #7f8c8d"
-          }}
-        >
-          <h3 style={{ margin: "0 0 10px 0", color: "#34495e" }}>
-            ✈️ ค่าตั๋วเครื่องบินรวม
-          </h3>
-          <p
+          <span
             style={{
-              fontSize: "24px",
+              background: "#e2e8f0",
+              padding: "6px 12px",
+              borderRadius: "20px",
+              fontSize: "14px",
               fontWeight: "bold",
-              margin: 0,
-              color: "#2c3e50"
+              color: "#4a5568"
             }}
           >
-            ฿{flightCostTHB.toLocaleString()}{" "}
-            <span style={{ fontSize: "14px", color: "#7f8c8d" }}>THB</span>
-          </p>
+            📍 {destinationName} ({tripResult?.totalDays || 0} วัน)
+          </span>
         </div>
+
+        {/* Banner ยอดรวม */}
         <div
           style={{
-            flex: 1,
-            minWidth: "280px",
-            background: "#f4f6f6",
-            padding: "20px",
-            borderRadius: "8px",
-            borderLeft: "5px solid #52c41a"
+            background: "linear-gradient(135deg, #485563, #29323c)",
+            color: "white",
+            padding: "30px",
+            borderRadius: "12px",
+            marginBottom: "30px",
+            textAlign: "center"
           }}
         >
-          <h3 style={{ margin: "0 0 10px 0", color: "#34495e" }}>
-            🎟️ ค่ากิจกรรมและการเดินทางในประเทศ
-          </h3>
           <p
             style={{
-              fontSize: "24px",
-              fontWeight: "bold",
-              margin: 0,
-              color: "#2c3e50"
+              margin: "0 0 10px 0",
+              fontSize: "16px",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              color: "#cbd5e1"
             }}
           >
-            ฿{totalActivitiesCostTHB.toLocaleString()}{" "}
-            <span style={{ fontSize: "14px", color: "#7f8c8d" }}>THB</span>
+            ประมาณการค่าใช้จ่ายทั้งหมด (Grand Total)
           </p>
-          {!isTHB && (
-            <small style={{ color: "#7f8c8d" }}>
-              (ประมาณยอดเดิม: {totalActivitiesCostForeign.toLocaleString()}{" "}
-              {currencyCode})
-            </small>
-          )}
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "42px",
+              fontWeight: "bold",
+              color: "#52c41a"
+            }}
+          >
+            ฿{grandTotalTHB.toLocaleString()}{" "}
+            <span style={{ fontSize: "20px", color: "#fff" }}>THB</span>
+          </h2>
         </div>
-      </div>
 
-      {/* ตาราง Breakdown รายวัน */}
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "8px",
-          border: "1px solid #e2e8f0"
-        }}
-      >
-        <h3 style={{ margin: "0 0 15px 0", color: "#2f4f4f" }}>
-          📅 รายละเอียดค่าใช้จ่ายแยกตามรายวัน
-        </h3>
-        <table
+        {/* การ์ดแยกประเภท */}
+        <div
           style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            textAlign: "left"
+            display: "flex",
+            gap: "20px",
+            flexWrap: "wrap",
+            marginBottom: "30px"
           }}
         >
-          <thead>
-            <tr
-              style={{
-                background: "#ebedef",
-                borderBottom: "2px solid #cbd5e1"
-              }}
-            >
-              <th style={{ padding: "12px", color: "#475569" }}>วันเดินทาง</th>
-              <th style={{ padding: "12px", color: "#475569" }}>
-                ไฮไลท์ประจำวัน
-              </th>
-              {!isTHB && (
-                <th
+          <div
+            style={{
+              flex: 1,
+              minWidth: "280px",
+              background: "#f4f6f6",
+              padding: "20px",
+              borderRadius: "8px",
+              borderLeft: "5px solid #7f8c8d"
+            }}
+          >
+            <h3 style={{ margin: "0 0 10px 0", color: "#34495e" }}>
+              ✈️ ค่าตั๋วเครื่องบินรวม
+            </h3>
+            <p style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>
+              ฿{flightCostTHB.toLocaleString()} THB
+            </p>
+          </div>
+          <div
+            style={{
+              flex: 1,
+              minWidth: "280px",
+              background: "#f4f6f6",
+              padding: "20px",
+              borderRadius: "8px",
+              borderLeft: "5px solid #52c41a"
+            }}
+          >
+            <h3 style={{ margin: "0 0 10px 0", color: "#34495e" }}>
+              🎟️ ค่ากิจกรรมและการเดินทาง
+            </h3>
+            <p style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>
+              ฿{totalActivitiesCostTHB.toLocaleString()} THB
+            </p>
+          </div>
+        </div>
+
+        {/* ตาราง Breakdown รายวัน */}
+        <div
+          style={{
+            background: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0"
+          }}
+        >
+          <h3 style={{ margin: "0 0 15px 0", color: "#2f4f4f" }}>
+            📅 รายละเอียดค่าใช้จ่ายแยกตามรายวัน
+          </h3>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              textAlign: "left"
+            }}
+          >
+            <thead>
+              <tr
+                style={{
+                  background: "#ebedef",
+                  borderBottom: "2px solid #cbd5e1"
+                }}
+              >
+                <th style={{ padding: "12px" }}>วันเดินทาง</th>
+                <th style={{ padding: "12px" }}>ไฮไลท์ประจำวัน</th>
+                {!isTHB && (
+                  <th style={{ padding: "12px", textAlign: "right" }}>
+                    ต่างประเทศ ({currencyCode})
+                  </th>
+                )}
+                <th style={{ padding: "12px", textAlign: "right" }}>
+                  เงินบาท (THB)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {dailyBreakdown.map((day, idx) => (
+                <tr
+                  key={idx}
                   style={{
-                    padding: "12px",
-                    color: "#475569",
-                    textAlign: "right"
+                    borderBottom: "1px solid #e2e8f0",
+                    backgroundColor: idx % 2 === 0 ? "#fafbfc" : "#ffffff"
                   }}
                 >
-                  ค่าใช้จ่ายต่างประเทศ ({currencyCode})
-                </th>
-              )}
-              <th
-                style={{
-                  padding: "12px",
-                  color: "#475569",
-                  textAlign: "right"
-                }}
-              >
-                แปลงเป็นเงินบาท (THB)
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {dailyBreakdown.map((day, idx) => (
-              <tr
-                key={idx}
-                style={{
-                  borderBottom: "1px solid #e2e8f0",
-                  backgroundColor: idx % 2 === 0 ? "#fafbfc" : "#ffffff"
-                }}
-              >
-                <td style={{ padding: "12px", fontWeight: "bold" }}>
-                  วันที่ {day.day}
-                </td>
-                <td style={{ padding: "12px", color: "#64748b" }}>
-                  {day.theme}
-                </td>
-                {!isTHB && (
+                  <td style={{ padding: "12px", fontWeight: "bold" }}>
+                    วันที่ {day.day}
+                  </td>
+                  <td style={{ padding: "12px", color: "#64748b" }}>
+                    {day.theme}
+                  </td>
+                  {!isTHB && (
+                    <td style={{ padding: "12px", textAlign: "right" }}>
+                      {day.costForeign.toLocaleString()}
+                    </td>
+                  )}
                   <td
                     style={{
                       padding: "12px",
                       textAlign: "right",
-                      color: "#475569"
+                      fontWeight: "bold",
+                      color: "#2e7d32"
                     }}
                   >
-                    {day.costForeign.toLocaleString()}
+                    ฿{day.costTHB.toLocaleString()}
                   </td>
-                )}
-                <td
-                  style={{
-                    padding: "12px",
-                    textAlign: "right",
-                    fontWeight: "bold",
-                    color: "#2e7d32"
-                  }}
-                >
-                  ฿{day.costTHB.toLocaleString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
