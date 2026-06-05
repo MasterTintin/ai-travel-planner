@@ -9,6 +9,7 @@ function App() {
     days: 1,
     budget: "Economy",
     airlinePreference: "Full Service",
+    travelStyle: "Sightseeing", // รูปแบบสไตล์หลักสากล
     interests: ""
   });
 
@@ -38,7 +39,6 @@ function App() {
     fetchRates();
   }, []);
 
-  // เพิ่ม Animation Styles เข้าไป
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -106,12 +106,25 @@ function App() {
       }}
     >
       {/* === สลับหน้าจอ === */}
-      {activePage === "budget" && tripResult ? (
-        <BudgetSummary
-          tripResult={tripResult}
-          exchangeData={exchangeData}
-          onBack={() => setActivePage("home")}
-        />
+
+      {activePage === "budget" ? (
+        tripResult ? (
+          <BudgetSummary
+            tripResult={tripResult}
+            exchangeData={exchangeData}
+            onBack={() => setActivePage("home")}
+          />
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            <h3>⚠️ ยังไม่มีข้อมูลทริป กรุณากรอกข้อมูลและกดสร้างทริปก่อน </h3>
+            <button
+              onClick={() => setActivePage("home")}
+              style={{ padding: "10px 20px", cursor: "pointer" }}
+            >
+              กลับหน้าหลัก
+            </button>
+          </div>
+        )
       ) : (
         <>
           <h1 style={{ textAlign: "center", marginBottom: "30px" }}>
@@ -272,7 +285,51 @@ function App() {
 
                 <div>
                   <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                    🎨 ความสนใจ / ไลฟ์สไตล์:
+                    🎭 สไตล์การเดินทางหลัก (Travel Vibe):
+                  </label>
+                  <select
+                    name="travelStyle"
+                    value={formData.travelStyle}
+                    onChange={handleChange}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                      borderRadius: "4px",
+                      border: "1px solid #ccc",
+                      backgroundColor: "#fff"
+                    }}
+                  >
+                    <option value="Sightseeing">
+                      Sightseeing & Culture (เน้นแลนด์มาร์ก ประวัติศาสตร์
+                      และจุดเช็กอินสำคัญ)
+                    </option>
+                    <option value="Foodie">
+                      Culinary & Local Food (สายกิน ตะลุยร้านดัง
+                      ลิ้มลองอาหารท้องถิ่น)
+                    </option>
+                    <option value="Nature & Adventure">
+                      Nature & Outdoor (สายธรรมชาติ อุทยาน เดินป่า
+                      กิจกรรมกลางแจ้ง)
+                    </option>
+                    <option value="Shopping & Lifestyle">
+                      Shopping & Urban Life (สายช้อปปิ้ง แฟชั่น
+                      สำรวจเมืองหลวงและไลฟ์สไตล์คนเมือง)
+                    </option>
+                    <option value="Relaxation & Wellness">
+                      Relaxation & Leisure (สายชิล เน้นพักผ่อน ดื่มด่ำบรรยากาศ
+                      ไม่เร่งรีบ)
+                    </option>
+                    <option value="Arts & Entertainment">
+                      Arts, Nightlife & Entertainment (สายเสพศิลปะ พิพิธภัณฑ์
+                      แสงสี และความบันเทิง)
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontWeight: "bold", fontSize: "14px" }}>
+                    🎨 ความสนใจเพิ่มเติม / ไลฟ์สไตล์:
                   </label>
                   <textarea
                     name="interests"
@@ -384,8 +441,7 @@ function App() {
                       >
                         สกุลเงิน
                       </th>
-                      <th style={{ padding: "10px 0", width: "10%" }}></th>{" "}
-                      {/* ช่องว่างตรงกลางสำหรับหัวตารางเพื่อรับเครื่องหมาย = */}
+                      <th style={{ padding: "10px 0", width: "10%" }}></th>
                       <th
                         style={{
                           padding: "10px 8px",
@@ -399,20 +455,12 @@ function App() {
                   </thead>
                   <tbody>
                     {exchangeData?.rates?.map((item, index) => {
-                      // 1. จัดการเรื่องฐานเรตเงิน (คำนวณให้เป็นค่าต่อ 1 หน่วยสกุลเงินนั้นๆ เสมอ)
                       let displayRate = item.rate;
-
-                      if (item.code === "JPY") {
-                        // ปกติ API จะให้เรตต่อ 100 JPY (เช่น 20.4661) -> หาร 100 เพื่อให้ได้ต่อ 1 JPY
-                        displayRate = (item.rate / 100).toFixed(6);
-                      } else if (item.code === "KRW") {
-                        // ปกติ API จะให้เรตต่อ 100 KRW (เช่น 2.1444) -> หาร 100 เพื่อให้ได้ต่อ 1 KRW
+                      if (item.code === "JPY" || item.code === "KRW") {
                         displayRate = (item.rate / 100).toFixed(6);
                       } else if (item.code === "VND") {
-                        // ปกติ API จะให้เรตต่อ 1,000 VND (เช่น 1.2474) -> หาร 1000 เพื่อให้ได้ต่อ 1 VND
                         displayRate = (item.rate / 1000).toFixed(6);
                       } else {
-                        // สกุลเงินอื่นๆ เช่น USD, EUR, SGD เป็นต่อ 1 หน่วยอยู่แล้ว โชว์ทศนิยม 4 ตำแหน่งปกติ
                         displayRate = Number(item.rate).toFixed(4);
                       }
 
@@ -425,7 +473,6 @@ function App() {
                               index % 2 === 0 ? "#fafafa" : "#fff"
                           }}
                         >
-                          {/* 1. คอลัมน์ซ้าย: แสดงชื่อหน่วยสกุลเงิน */}
                           <td
                             style={{
                               padding: "12px 8px",
@@ -439,8 +486,6 @@ function App() {
                               ({item.name.replace(` (${item.code})`, "")})
                             </span>
                           </td>
-
-                          {/* 2. คอลัมน์กลาง: เพิ่มเครื่องหมาย = */}
                           <td
                             style={{
                               padding: "12px 0",
@@ -452,8 +497,6 @@ function App() {
                           >
                             =
                           </td>
-
-                          {/* 3. คอลัมน์ขวา: แสดงมูลค่าเงินบาท */}
                           <td
                             style={{
                               padding: "12px 8px",
@@ -540,7 +583,6 @@ function App() {
                     💡 <b>คำแนะนำ:</b> {tripResult.recommendedFlight.flightTips}
                   </p>
 
-                  {/* ปุ่มจองตั๋วข้ามไป Trip.com */}
                   {tripResult.recommendedFlight.bookingUrl && (
                     <div style={{ marginTop: "15px" }}>
                       <a
@@ -555,15 +597,8 @@ function App() {
                           fontWeight: "bold",
                           textDecoration: "none",
                           borderRadius: "6px",
-                          boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-                          transition: "background-color 0.2s"
+                          boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
                         }}
-                        onMouseOver={(e) =>
-                          (e.target.style.backgroundColor = "#0053b3")
-                        }
-                        onMouseOut={(e) =>
-                          (e.target.style.backgroundColor = "#0064d2")
-                        }
                       >
                         ✈️ เช็กและจองตั๋วเครื่องบินจริงบน Trip.com 🌐
                       </a>
@@ -572,7 +607,7 @@ function App() {
                 </div>
               )}
 
-              {/* === 3. ปุ่มกดสลับไปหน้าดูงบประมาณแบบสรุปยอด === */}
+              {/* === ปุ่มสรุปงบประมาณ === */}
               <div style={{ marginTop: "25px", marginBottom: "25px" }}>
                 <button
                   onClick={() => setActivePage("budget")}
@@ -586,15 +621,8 @@ function App() {
                     cursor: "pointer",
                     fontSize: "16px",
                     fontWeight: "bold",
-                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                    transition: "background-color 0.2s"
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
                   }}
-                  onMouseOver={(e) =>
-                    (e.target.style.backgroundColor = "#1b5e20")
-                  }
-                  onMouseOut={(e) =>
-                    (e.target.style.backgroundColor = "#2e7d32")
-                  }
                 >
                   📊 ดูสรุปงบประมาณและ Breakdown ค่าใช้จ่ายในทริป (THB) 💸
                 </button>
@@ -641,7 +669,7 @@ function App() {
                         <small style={{ color: "#999" }}>
                           💵 ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:
                           <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${act.latitude},${act.longitude}`}
+                            href={`http://maps.google.com/?q=${act.latitude},${act.longitude}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{

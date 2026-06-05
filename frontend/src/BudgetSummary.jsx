@@ -1,20 +1,22 @@
 import React from "react";
 
-function BudgetSummary({ tripResult, exchangeData, onBack }) {
+function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
   // === 1. ฟังก์ชันสกัดตัวเลขจาก String ===
   const extractNumber = (text) => {
     if (!text) return 0;
-    // ดึงเฉพาะตัวเลขและเครื่องหมายจุลภาคมารวมกัน เช่น "15,000" -> "15000"
-    const cleaned = text.replace(/,/g, "").match(/\d+/);
-    return cleaned ? parseInt(cleaned[0], 10) : 0;
+    const cleanedText = text.toString().replace(/,/g, "");
+    const match = cleanedText.match(/\d+(\.\d+)?/);
+    return match ? parseFloat(match[0]) : 0;
   };
 
-  // === 2. ค้นหา Exchange Rateที่สอดคล้องกับปลายทาง ===
-  const getCurrencyRate = (destination) => {
-    if (!exchangeData || !exchangeData.rates) return 1;
+  // === 2. ค้นหา สกุลเงิน และ Exchange Rate ===
+  const getCurrencyInfo = (destination) => {
+    if (!destination || !exchangeData || !exchangeData.rates) {
+      return { code: "THB", rate: 1 };
+    }
 
     const dest = destination.toLowerCase();
-    // ค้นหาโค้ดสกุลเงินให้ตรงกับประเทศปลายทาง
+
     let match = exchangeData.rates.find((r) => {
       if (dest.includes("japan") && r.code === "JPY") return true;
       if (dest.includes("korea") && r.code === "KRW") return true;
@@ -45,23 +47,44 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
       return false;
     });
 
-    return match ? match.rate : 1;
+    if (match) {
+      let rawRate = parseFloat(match.rate);
+
+      if ((match.code === "JPY" || match.code === "KRW") && rawRate > 1) {
+        rawRate = rawRate / 100;
+      }
+
+      return { code: match.code, rate: rawRate };
+    }
+
+    return { code: "THB", rate: 1 };
   };
 
-  // === 3. คำนวณงบประมาณ ===
-  const rate = getCurrencyRate(tripResult.destination);
-  const isTHB = tripResult.destination.toLowerCase().includes("thailand");
+  // === 3. ฟังก์ชันคำนวณแปลงค่าเงินเป็นบาท ===
+  const calculateTHB = (foreignCost, currencyCode, rate) => {
+    if (currencyCode === "THB" || !currencyCode) return foreignCost;
+    return Math.round(foreignCost * rate);
+  };
 
-  // 3.1 คำนวณค่าตั๋วเครื่องบิน
+  // === 4. ประมวลผลคำนวณงบประมาณ ===
+  const destinationName = tripResult?.destination || "ไม่ระบุปลายทาง";
+  const { code: currencyCode, rate } = getCurrencyInfo(destinationName);
+  const isTHB =
+    destinationName.toLowerCase().includes("thailand") ||
+    currencyCode === "THB";
+
+  // 4.1 ค่าตั๋วเครื่องบิน
   const flightCostRaw = extractNumber(
-    tripResult.recommendedFlight?.estimatedFlightCost
+    tripResult?.recommendedFlight?.estimatedFlightCost
   );
   const flightCostTHB = flightCostRaw;
 
-  // 3.2 คำนวณค่ากิจกรรมรายวัน
+  // 4.2 ค่ากิจกรรมรายวัน
   let totalActivitiesCostForeign = 0;
+  let totalActivitiesCostTHB = 0;
+
   const dailyBreakdown =
-    tripResult.itinerary?.map((dayData) => {
+    tripResult?.itinerary?.map((dayData) => {
       let dayTotalForeign = 0;
 
       dayData.activities?.forEach((act) => {
@@ -70,17 +93,19 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
 
       totalActivitiesCostForeign += dayTotalForeign;
 
+      const dayTotalTHB = isTHB
+        ? dayTotalForeign
+        : calculateTHB(dayTotalForeign, currencyCode, rate);
+      totalActivitiesCostTHB += dayTotalTHB;
+
       return {
         day: dayData.day,
-        theme: dayData.theme,
+        theme: dayData.theme || "ไม่มีไฮไลท์ประจำวัน",
         costForeign: dayTotalForeign,
-        costTHB: isTHB ? dayTotalForeign : Math.round(dayTotalForeign * rate)
+        costTHB: dayTotalTHB
       };
     }) || [];
 
-  const totalActivitiesCostTHB = isTHB
-    ? totalActivitiesCostForeign
-    : Math.round(totalActivitiesCostForeign * rate);
   const grandTotalTHB = flightCostTHB + totalActivitiesCostTHB;
 
   return (
@@ -141,10 +166,11 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
             color: "#4a5568"
           }}
         >
-          📍 {tripResult.destination} ({tripResult.totalDays} วัน)
+          📍 {destinationName} ({tripResult?.totalDays || 0} วัน)
         </span>
       </div>
 
+      {/* แบนเนอร์ยอดรวม */}
       <div
         style={{
           background: "linear-gradient(135deg, #485563, #29323c)",
@@ -182,12 +208,13 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
           <p
             style={{ margin: "10px 0 0 0", fontSize: "13px", color: "#94a3b8" }}
           >
-            *คำนวณอ้างอิงจากอัตราแลกเปลี่ยนรายวันคงที่ ณ ปัจจุบัน
+            *คำนวณอ้างอิงจากอัตราแลกเปลี่ยนรายวันคงที่ ณ ปัจจุบัน (1{" "}
+            {currencyCode} = {rate} THB)
           </p>
         )}
       </div>
 
-      {/* การ์ดแยกประเภท (ตั๋วเครื่องบิน vs กิจกรรม) */}
+      {/* การ์ดแยกประเภท */}
       <div
         style={{
           display: "flex",
@@ -248,7 +275,7 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
           {!isTHB && (
             <small style={{ color: "#7f8c8d" }}>
               (ประมาณยอดเดิม: {totalActivitiesCostForeign.toLocaleString()}{" "}
-              ยูนิตต่างประเทศ)
+              {currencyCode})
             </small>
           )}
         </div>
@@ -292,7 +319,7 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
                     textAlign: "right"
                   }}
                 >
-                  ค่าใช้จ่ายต่างประเทศ
+                  ค่าใช้จ่ายต่างประเทศ ({currencyCode})
                 </th>
               )}
               <th
@@ -316,7 +343,7 @@ function BudgetSummary({ tripResult, exchangeData, onBack }) {
                 }}
               >
                 <td style={{ padding: "12px", fontWeight: "bold" }}>
-                  วันทีี่ {day.day}
+                  วันที่ {day.day}
                 </td>
                 <td style={{ padding: "12px", color: "#64748b" }}>
                   {day.theme}
