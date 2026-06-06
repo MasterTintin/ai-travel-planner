@@ -3,6 +3,8 @@ import axios from "axios";
 import BudgetSummary from "./BudgetSummary";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import planeBg from "./assets/plane.jpg";
+import cloudsBg from "./assets/cloud.jpg";
 
 function App() {
   const [formData, setFormData] = useState({
@@ -76,7 +78,7 @@ function App() {
         tripResult?.destination?.replace(/[^a-zA-Z0-9]/g, "_") || "Trip";
       pdf.save(`Itinerary_${destinationName}.pdf`);
     } catch (pdfError) {
-      console.error("❌ เกิดข้อผิดพลาดในการสร้างไฟล์ :", pdfError);
+      console.error(" เกิดข้อผิดพลาดในการสร้างไฟล์ :", pdfError);
       alert("ไม่สามารถสร้างไฟล์ตารางการเดินทาง ได้ในขณะนี้");
     } finally {
       setIsExportingPDF(false);
@@ -183,9 +185,101 @@ function App() {
         )
       ) : (
         <>
-          <h1 style={{ textAlign: "center", marginBottom: "30px" }}>
-            🤖 AI Travel Planner & Flight Matcher 🚀
-          </h1>
+          {/* ==================== กล่อง Hero Banner แบบต่อรูปซ้ายขวา ==================== */}
+          <div
+            style={{
+              position: "relative",
+              height: "280px",
+              borderRadius: "12px",
+              overflow: "hidden",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              marginBottom: "35px",
+              boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+              backgroundColor: "#0b1526"
+            }}
+          >
+            {/* รูปฝั่งซ้าย */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "60%",
+                height: "100%",
+                backgroundImage: `url(${planeBg})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                WebkitMaskImage:
+                  "linear-gradient(to right, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
+                maskImage:
+                  "linear-gradient(to right, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)"
+              }}
+            />
+
+            {/* รูปฝั่งขวา */}
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: "55%",
+                height: "100%",
+                backgroundImage: `url(${cloudsBg})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                WebkitMaskImage:
+                  "linear-gradient(to left, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
+                maskImage:
+                  "linear-gradient(to left, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)"
+              }}
+            />
+
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.5))",
+                zIndex: 1
+              }}
+            />
+
+            {/* โซนเนื้อหาหัวเว็บ */}
+            <div
+              style={{
+                zIndex: 2,
+                color: "white",
+                textAlign: "center",
+                padding: "20px"
+              }}
+            >
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "2.6rem",
+                  fontWeight: "bold",
+                  textShadow: "3px 3px 12px rgba(0, 0, 0, 0.85)",
+                  letterSpacing: "1px"
+                }}
+              >
+                🤖 AI Travel Planner & Flight Matcher 🚀
+              </h1>
+              <p
+                style={{
+                  margin: "12px 0 0 0",
+                  fontSize: "1.15rem",
+                  opacity: 0.95,
+                  fontWeight: "500",
+                  textShadow: "2px 2px 6px rgba(0, 0, 0, 0.85)"
+                }}
+              >
+                ค้นหาเที่ยวบินที่ใช่ จัดแจงทริปที่ชอบในไม่กี่วินาที
+              </p>
+            </div>
+          </div>
+          {/* =================================================================================== */}
 
           <div
             style={{
@@ -548,7 +642,6 @@ function App() {
                     </tbody>
                   </table>
 
-                  {/* เส้นคั่นก่อนเริ่มเครื่องคำนวณเงิน */}
                   <hr
                     style={{
                       margin: "20px 0",
@@ -567,7 +660,7 @@ function App() {
                         gap: "6px"
                       }}
                     >
-                      🧮 เครื่องคำนวณเงินด่วน
+                      🧮 เครื่องคำนวณเงิน
                     </h4>
 
                     <div
@@ -578,7 +671,6 @@ function App() {
                         marginBottom: "12px"
                       }}
                     >
-                      {/* 1. ช่องกรอกจำนวนเงินตราต่างประเทศ */}
                       <input
                         type="number"
                         value={foreignAmount}
@@ -594,7 +686,6 @@ function App() {
                         }}
                       />
 
-                      {/* 2. Dropdown สกุลเงิน */}
                       <select
                         value={converterCurrency}
                         onChange={(e) => setConverterCurrency(e.target.value)}
@@ -616,7 +707,6 @@ function App() {
                       </select>
                     </div>
 
-                    {/* กล่องแสดงผลลัพธ์แปลงเป็นเงินบาทไทย */}
                     <div
                       style={{
                         background: "#f1f8e9",
