@@ -11,6 +11,7 @@ function App() {
     destination: "Japan",
     departureDate: "",
     days: 1,
+    travelers: 1,
     budget: "Economy",
     airlinePreference: "Full Service",
     travelStyle: "Sightseeing",
@@ -78,7 +79,7 @@ function App() {
         tripResult?.destination?.replace(/[^a-zA-Z0-9]/g, "_") || "Trip";
       pdf.save(`Itinerary_${destinationName}.pdf`);
     } catch (pdfError) {
-      console.error(" เกิดข้อผิดพลาดในการสร้างไฟล์ :", pdfError);
+      console.error("❌ เกิดข้อผิดพลาดในการสร้างไฟล์ :", pdfError);
       alert("ไม่สามารถสร้างไฟล์ตารางการเดินทาง ได้ในขณะนี้");
     } finally {
       setIsExportingPDF(false);
@@ -185,7 +186,7 @@ function App() {
         )
       ) : (
         <>
-          {/* ==================== กล่อง Hero Banner แบบต่อรูปซ้ายขวา ==================== */}
+          {/* ==================== กล่อง Hero Banner แบบต่อรูปซ้ายขวาเนียน ๆ ==================== */}
           <div
             style={{
               position: "relative",
@@ -200,7 +201,7 @@ function App() {
               backgroundColor: "#0b1526"
             }}
           >
-            {/* รูปฝั่งซ้าย */}
+            {/* รูปฝั่งซ้าย: เครื่องบินเทคออฟ */}
             <div
               style={{
                 position: "absolute",
@@ -218,7 +219,7 @@ function App() {
               }}
             />
 
-            {/* รูปฝั่งขวา */}
+            {/* รูปฝั่งขวา: วิวก้อนเมฆนอกหน้าต่าง */}
             <div
               style={{
                 position: "absolute",
@@ -236,6 +237,7 @@ function App() {
               }}
             />
 
+            {/* แผ่นฟิล์มสีมืดเคลือบทับเพื่อให้ตัวหนังสือเด่นสะดุดตา */}
             <div
               style={{
                 position: "absolute",
@@ -246,7 +248,7 @@ function App() {
               }}
             />
 
-            {/* โซนเนื้อหาหัวเว็บ */}
+            {/* โซนเนื้อหาตัวหนังสือหัวเว็บ */}
             <div
               style={{
                 zIndex: 2,
@@ -359,8 +361,9 @@ function App() {
                   </div>
                 </div>
 
+                {/* แถวข้อมูล: Days | Travelers | Budget */}
                 <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                  <div style={{ flex: "1", minWidth: "180px" }}>
+                  <div style={{ flex: "1", minWidth: "120px" }}>
                     <label style={{ fontWeight: "bold", fontSize: "14px" }}>
                       ⏳ จำนวนวันเดินทาง (Days):
                     </label>
@@ -381,7 +384,30 @@ function App() {
                     />
                   </div>
 
-                  <div style={{ flex: "1", minWidth: "180px" }}>
+                  <div style={{ flex: "1", minWidth: "120px" }}>
+                    <label style={{ fontWeight: "bold", fontSize: "14px" }}>
+                      👥 จำนวนผู้ร่วมทริป (คน):
+                    </label>
+                    <input
+                      type="number"
+                      name="travelers"
+                      min="1"
+                      max="50"
+                      value={formData.travelers}
+                      onChange={handleChange}
+                      required
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        marginTop: "5px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        backgroundColor: "#fff"
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ flex: "1", minWidth: "120px" }}>
                     <label style={{ fontWeight: "bold", fontSize: "14px" }}>
                       💰 งบประมาณรวม:
                     </label>
@@ -427,8 +453,8 @@ function App() {
                       Full Service (บริการเต็มรูปแบบ เช่น Thai Airways , ANA)
                     </option>
                     <option value="Luxury/First Class">
-                      Luxury/First Class (พรีเมียมหรูหรา เช่น Emirates ,
-                      Singapore Airlines)
+                      Luxury/First Class (พรีเมียม เช่น Emirates , Singapore
+                      Airlines)
                     </option>
                   </select>
                 </div>
@@ -660,7 +686,7 @@ function App() {
                         gap: "6px"
                       }}
                     >
-                      🧮 เครื่องคำนวณเงิน
+                      🧮 เครื่องคำนวณเงินด่วน
                     </h4>
 
                     <div
