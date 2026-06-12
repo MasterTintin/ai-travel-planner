@@ -1,0 +1,33 @@
+/* ล้าง Margin และตั้งค่าให้ฉากหลังขยับเคลื่อนไหว */
+body {
+  margin: 0;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* ไล่เฉดสีฟ้าพาสเทล, ขาว, ฟ้าอมเขียว ละมุนตา ไม่ฉูดฉาด */
+  background: linear-gradient(-45deg, #e0f2fe, #f0fdf4, #eef2ff, #ffffff);
+  background-size: 400% 400%;
+
+  /* สั่งให้เฉดสีไหลขยับไปมาในเวลา 15 วินาที แบบลูปไม่รู้จบ */
+  animation: gradientBG 15s ease infinite;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* ปลดล็อกโครงสร้าง #root ไม่ให้มีสีขาวมาบังพื้นหลัง */
+#root {
+  background: transparent !important;
+  min-height: 100vh;
+}
+
+/* ตัวขับเคลื่อนแอนิเมชันเปลี่ยนตำแหน่งจุดไล่เฉดสี */
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

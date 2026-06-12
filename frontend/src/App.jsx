@@ -1,10 +1,358 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import BudgetSummary from "./BudgetSummary";
+import BudgetSummary from "./components/BudgetSummary";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import planeBg from "./assets/plane.jpg";
 import cloudsBg from "./assets/cloud.jpg";
+
+// 🌍 รายชื่อประเทศทั่วโลกที่เป็นมาตรฐานสากล พร้อมตัวแมปสกุลเงินสำหรับเครื่องคำนวณเงิน
+const ALL_COUNTRIES = [
+  { name: "Afghanistan", currency: "AFN" },
+  { name: "Albania", currency: "ALL" },
+  { name: "Algeria", currency: "DZD" },
+  { name: "Andorra", currency: "EUR" },
+  { name: "Angola", currency: "AOA" },
+  { name: "Antigua and Barbuda", currency: "XCD" },
+  { name: "Argentina", currency: "ARS" },
+  { name: "Armenia", currency: "AMD" },
+  { name: "Australia", currency: "AUD" },
+  { name: "Austria", currency: "EUR" },
+  { name: "Azerbaijan", currency: "AZN" },
+  { name: "Bahamas", currency: "BSD" },
+  { name: "Bahrain", currency: "BHD" },
+  { name: "Bangladesh", currency: "BDT" },
+  { name: "Barbados", currency: "BBD" },
+  { name: "Belarus", currency: "BYN" },
+  { name: "Belgium", currency: "EUR" },
+  { name: "Belize", currency: "BZD" },
+  { name: "Benin", currency: "XOF" },
+  { name: "Bhutan", currency: "BTN" },
+  { name: "Bolivia", currency: "BOB" },
+  { name: "Bosnia and Herzegovina", currency: "BAM" },
+  { name: "Botswana", currency: "BWP" },
+  { name: "Brazil", currency: "BRL" },
+  { name: "Brunei", currency: "BND" },
+  { name: "Bulgaria", currency: "BGN" },
+  { name: "Burkina Faso", currency: "XOF" },
+  { name: "Burundi", currency: "BIF" },
+  { name: "Cambodia", currency: "KHR" },
+  { name: "Cameroon", currency: "XAF" },
+  { name: "Canada", currency: "CAD" },
+  { name: "Cape Verde", currency: "CVE" },
+  { name: "Central African Republic", currency: "XAF" },
+  { name: "Chad", currency: "XAF" },
+  { name: "Chile", currency: "CLP" },
+  { name: "China", currency: "CNY" },
+  { name: "Colombia", currency: "COP" },
+  { name: "Comoros", currency: "KMF" },
+  { name: "Congo", currency: "XAF" },
+  { name: "Costa Rica", currency: "CRC" },
+  { name: "Croatia", currency: "EUR" },
+  { name: "Cuba", currency: "CUP" },
+  { name: "Cyprus", currency: "EUR" },
+  { name: "Czech Republic", currency: "CZK" },
+  { name: "Denmark", currency: "DKK" },
+  { name: "Djibouti", currency: "DJF" },
+  { name: "Dominica", currency: "XCD" },
+  { name: "Dominican Republic", currency: "DOP" },
+  { name: "East Timor", currency: "USD" },
+  { name: "Ecuador", currency: "USD" },
+  { name: "Egypt", currency: "EGP" },
+  { name: "El Salvador", currency: "USD" },
+  { name: "Equatorial Guinea", currency: "XAF" },
+  { name: "Eritrea", currency: "ERN" },
+  { name: "Estonia", currency: "EUR" },
+  { name: "Eswatini", currency: "SZL" },
+  { name: "Ethiopia", currency: "ETB" },
+  { name: "Fiji", currency: "FJD" },
+  { name: "Finland", currency: "EUR" },
+  { name: "France", currency: "EUR" },
+  { name: "Gabon", currency: "XAF" },
+  { name: "Gambia", currency: "GMD" },
+  { name: "Georgia", currency: "GEL" },
+  { name: "Germany", currency: "EUR" },
+  { name: "Ghana", currency: "GHS" },
+  { name: "Greece", currency: "EUR" },
+  { name: "Grenada", currency: "XCD" },
+  { name: "Guatemala", currency: "GTQ" },
+  { name: "Guinea", currency: "GNF" },
+  { name: "Guinea-Bissau", currency: "XOF" },
+  { name: "Guyana", currency: "GYD" },
+  { name: "Haiti", currency: "HTG" },
+  { name: "Honduras", currency: "HNL" },
+  { name: "Hong Kong", currency: "HKD" },
+  { name: "Hungary", currency: "HUF" },
+  { name: "Iceland", currency: "ISK" },
+  { name: "India", currency: "INR" },
+  { name: "Indonesia", currency: "IDR" },
+  { name: "Iran", currency: "IRR" },
+  { name: "Iraq", currency: "IQD" },
+  { name: "Ireland", currency: "EUR" },
+  { name: "Israel", currency: "ILS" },
+  { name: "Italy", currency: "EUR" },
+  { name: "Ivory Coast", currency: "XOF" },
+  { name: "Jamaica", currency: "JMD" },
+  { name: "Japan", currency: "JPY" },
+  { name: "Jordan", currency: "JOD" },
+  { name: "Kazakhstan", currency: "KZT" },
+  { name: "Kenya", currency: "KES" },
+  { name: "Kiribati", currency: "AUD" },
+  { name: "Kuwait", currency: "KWD" },
+  { name: "Kyrgyzstan", currency: "KGS" },
+  { name: "Laos", currency: "LAK" },
+  { name: "Latvia", currency: "EUR" },
+  { name: "Lebanon", currency: "LBP" },
+  { name: "Lesotho", currency: "LSL" },
+  { name: "Liberia", currency: "LRD" },
+  { name: "Libya", currency: "LYD" },
+  { name: "Liechtenstein", currency: "CHF" },
+  { name: "Lithuania", currency: "EUR" },
+  { name: "Luxembourg", currency: "EUR" },
+  { name: "Macau", currency: "MOP" },
+  { name: "Madagascar", currency: "MGA" },
+  { name: "Malawi", currency: "MWK" },
+  { name: "Malaysia", currency: "MYR" },
+  { name: "Maldives", currency: "MVR" },
+  { name: "Mali", currency: "XOF" },
+  { name: "Malta", currency: "EUR" },
+  { name: "Marshall Islands", currency: "USD" },
+  { name: "Mauritania", currency: "MRU" },
+  { name: "Mauritius", currency: "MUR" },
+  { name: "Mexico", currency: "MXN" },
+  { name: "Micronesia", currency: "USD" },
+  { name: "Moldova", currency: "MDL" },
+  { name: "Monaco", currency: "EUR" },
+  { name: "Mongolia", currency: "MNT" },
+  { name: "Montenegro", currency: "EUR" },
+  { name: "Morocco", currency: "MAD" },
+  { name: "Mozambique", currency: "MZN" },
+  { name: "Myanmar", currency: "MMK" },
+  { name: "Namibia", currency: "NAD" },
+  { name: "Nauru", currency: "AUD" },
+  { name: "Nepal", currency: "NPR" },
+  { name: "Netherlands", currency: "EUR" },
+  { name: "New Zealand", currency: "NZD" },
+  { name: "Nicaragua", currency: "NIO" },
+  { name: "Niger", currency: "XOF" },
+  { name: "Nigeria", currency: "NGN" },
+  { name: "North Korea", currency: "KPW" },
+  { name: "North Macedonia", currency: "MKD" },
+  { name: "Norway", currency: "NOK" },
+  { name: "Oman", currency: "OMR" },
+  { name: "Pakistan", currency: "PKR" },
+  { name: "Palau", currency: "USD" },
+  { name: "Palestine", currency: "ILS" },
+  { name: "Panama", currency: "PAB" },
+  { name: "Papua New Guinea", currency: "PGK" },
+  { name: "Paraguay", currency: "PYG" },
+  { name: "Peru", currency: "PEN" },
+  { name: "Philippines", currency: "PHP" },
+  { name: "Poland", currency: "PLN" },
+  { name: "Portugal", currency: "EUR" },
+  { name: "Qatar", currency: "QAR" },
+  { name: "Romania", currency: "RON" },
+  { name: "Russia", currency: "RUB" },
+  { name: "Rwanda", currency: "RWF" },
+  { name: "Saint Kitts and Nevis", currency: "XCD" },
+  { name: "Saint Lucia", currency: "XCD" },
+  { name: "Saint Vincent", currency: "XCD" },
+  { name: "Samoa", currency: "WST" },
+  { name: "San Marino", currency: "EUR" },
+  { name: "Sao Tome and Principe", currency: "STN" },
+  { name: "Saudi Arabia", currency: "SAR" },
+  { name: "Senegal", currency: "XOF" },
+  { name: "Serbia", currency: "RSD" },
+  { name: "Seychelles", currency: "SCR" },
+  { name: "Sierra Leone", currency: "SLE" },
+  { name: "Singapore", currency: "SGD" },
+  { name: "Slovakia", currency: "EUR" },
+  { name: "Slovenia", currency: "EUR" },
+  { name: "Solomon Islands", currency: "SBD" },
+  { name: "Somalia", currency: "SOS" },
+  { name: "South Africa", currency: "ZAR" },
+  { name: "South Korea", currency: "KRW" },
+  { name: "South Sudan", currency: "SSP" },
+  { name: "Spain", currency: "EUR" },
+  { name: "Sri Lanka", currency: "LKR" },
+  { name: "Sudan", currency: "SDG" },
+  { name: "Suriname", currency: "SRD" },
+  { name: "Sweden", currency: "SEK" },
+  { name: "Switzerland", currency: "CHF" },
+  { name: "Syria", currency: "SYP" },
+  { name: "Taiwan", currency: "TWD" },
+  { name: "Tajikistan", currency: "TJS" },
+  { name: "Tanzania", currency: "TZS" },
+  { name: "Thailand", currency: "THB" },
+  { name: "Togo", currency: "XOF" },
+  { name: "Tonga", currency: "TOP" },
+  { name: "Trinidad and Tobago", currency: "TTD" },
+  { name: "Tunisia", currency: "TND" },
+  { name: "Turkey", currency: "TRY" },
+  { name: "Turkmenistan", currency: "TMT" },
+  { name: "Tuvalu", currency: "AUD" },
+  { name: "Uganda", currency: "UGX" },
+  { name: "Ukraine", currency: "UAH" },
+  { name: "United Arab Emirates", currency: "AED" },
+  { name: "United Kingdom", currency: "GBP" },
+  { name: "United States", currency: "USD" },
+  { name: "Uruguay", currency: "UYU" },
+  { name: "Uzbekistan", currency: "UZS" },
+  { name: "Vanuatu", currency: "VUV" },
+  { name: "Vatican City", currency: "EUR" },
+  { name: "Venezuela", currency: "VES" },
+  { name: "Vietnam", currency: "VND" },
+  { name: "Yemen", currency: "YER" },
+  { name: "Zambia", currency: "ZMW" },
+  { name: "Zimbabwe", currency: "ZWG" }
+];
+
+const currencyToOfficialCountry = {
+  AFN: "Afghanistan",
+  ALL: "Albania",
+  DZD: "Algeria",
+  EUR: "Eurozone",
+  AOA: "Angola",
+  XCD: "East Caribbean",
+  ARS: "Argentina",
+  AMD: "Armenia",
+  AUD: "Australia",
+  AZN: "Azerbaijan",
+  BSD: "Bahamas",
+  BHD: "Bahrain",
+  BDT: "Bangladesh",
+  BBD: "Barbados",
+  BYN: "Belarus",
+  BZD: "Belize",
+  XOF: "West African CFA",
+  BTN: "Bhutan",
+  BOB: "Bolivia",
+  BAM: "Bosnia and Herzegovina",
+  BWP: "Botswana",
+  BRL: "Brazil",
+  BND: "Brunei",
+  BGN: "Bulgaria",
+  BIF: "Burundi",
+  KHR: "Cambodia",
+  XAF: "Central African CFA",
+  CAD: "Canada",
+  CVE: "Cape Verde",
+  CLP: "Chile",
+  CNY: "China",
+  COP: "Colombia",
+  KMF: "Comoros",
+  CRC: "Costa Rica",
+  CUP: "Cuba",
+  CZK: "Czech Republic",
+  DKK: "Denmark",
+  DJF: "Djibouti",
+  DOP: "Dominican Republic",
+  USD: "United States",
+  EGP: "Egypt",
+  ERN: "Eritrea",
+  SZL: "Eswatini",
+  ETB: "Ethiopia",
+  FJD: "Fiji",
+  GMD: "Gambia",
+  GEL: "Georgia",
+  GHS: "Ghana",
+  GTQ: "Guatemala",
+  GNF: "Guinea",
+  GYD: "Guyana",
+  HTG: "Haiti",
+  HNL: "Honduras",
+  HKD: "Hong Kong",
+  HUF: "Hungary",
+  ISK: "Iceland",
+  INR: "India",
+  IDR: "Indonesia",
+  IRR: "Iran",
+  IQD: "Iraq",
+  ILS: "Israel",
+  JMD: "Jamaica",
+  JPY: "Japan",
+  JOD: "Jordan",
+  KZT: "Kazakhstan",
+  KES: "Kenya",
+  KWD: "Kuwait",
+  KGS: "Kyrgyzstan",
+  LAK: "Laos",
+  LBP: "Lebanon",
+  LSL: "Lesotho",
+  LRD: "Liberia",
+  LYD: "Libya",
+  CHF: "Switzerland",
+  MOP: "Macau",
+  MGA: "Madagascar",
+  MWK: "Malawi",
+  MYR: "Malaysia",
+  MVR: "Maldives",
+  MRU: "Mauritania",
+  MUR: "Mauritius",
+  MXN: "Mexico",
+  MDL: "Moldova",
+  MNT: "Mongolia",
+  MAD: "Morocco",
+  MZN: "Mozambique",
+  MMK: "Myanmar",
+  NAD: "Namibia",
+  NPR: "Nepal",
+  NZD: "New Zealand",
+  NIO: "Nicaragua",
+  NGN: "Nigeria",
+  KPW: "North Korea",
+  MKD: "North Macedonia",
+  NOK: "Norway",
+  OMR: "Oman",
+  PKR: "Pakistan",
+  PAB: "Panama",
+  PGK: "Papua New Guinea",
+  PYG: "Paraguay",
+  PEN: "Peru",
+  PHP: "Philippines",
+  PLN: "Poland",
+  QAR: "Qatar",
+  RON: "Romania",
+  RUB: "Russia",
+  RWF: "Rwanda",
+  WST: "Samoa",
+  SAR: "Saudi Arabia",
+  RSD: "Serbia",
+  SCR: "Seychelles",
+  SLE: "Sierra Leone",
+  SGD: "Singapore",
+  SBD: "Solomon Islands",
+  SOS: "Somalia",
+  ZAR: "South Africa",
+  KRW: "South Korea",
+  SSP: "South Sudan",
+  LKR: "Sri Lanka",
+  SDG: "Sudan",
+  SRD: "Suriname",
+  SEK: "Sweden",
+  SYP: "Syria",
+  TWD: "Taiwan",
+  TJS: "Tajikistan",
+  TZS: "Tanzania",
+  THB: "Thailand",
+  TOP: "Tonga",
+  TTD: "Trinidad and Tobago",
+  TND: "Tunisia",
+  TRY: "Turkey",
+  TMT: "Turkmenistan",
+  UGX: "Uganda",
+  UAH: "Ukraine",
+  AED: "United Arab Emirates",
+  GBP: "United Kingdom",
+  UYU: "Uruguay",
+  UZS: "Uzbekistan",
+  VUV: "Vanuatu",
+  VES: "Venezuela",
+  VND: "Vietnam",
+  YER: "Yemen",
+  ZMW: "Zambia",
+  ZWG: "Zimbabwe"
+};
 
 function App() {
   const [formData, setFormData] = useState({
@@ -17,17 +365,19 @@ function App() {
     travelStyle: "Sightseeing",
     interests: ""
   });
+
   const [tripResult, setTripResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exchangeData, setExchangeData] = useState(null);
   const [ratesLoading, setRatesLoading] = useState(true);
-  const [activePage, setActivePage] = useState("home");
   const [converterCurrency, setConverterCurrency] = useState("JPY");
-  const [foreignAmount, setForeignAmount] = useState("25000");
+  const [foreignAmount, setForeignAmount] = useState("25,000");
+
   const itineraryContainerRef = useRef(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
+  // ดึงข้อมูลอัตราแลกเปลี่ยนจาก API
   useEffect(() => {
     const fetchRates = async () => {
       try {
@@ -36,7 +386,7 @@ function App() {
         );
         setExchangeData(response.data);
       } catch (err) {
-        console.error("ไม่สามารถดึงข้อมูลอัตราแลกเปลี่ยนได้:", err);
+        console.error("Error fetching exchange rates:", err);
       } finally {
         setRatesLoading(false);
       }
@@ -44,92 +394,75 @@ function App() {
     fetchRates();
   }, []);
 
-  const handleExportItineraryPDF = async () => {
-    const element = itineraryContainerRef.current;
-    if (!element) return;
-
-    try {
-      setIsExportingPDF(true);
-      const canvas = await html2canvas(element, {
-        scale: 1.8,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        logging: false
-      });
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgWidth = 210;
-      const pageHeight = 295;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+  // ซิงค์สกุลเงินอัตโนมัติเมื่อมีการเลือกประเทศฝั่งซ้าย
+  useEffect(() => {
+    if (formData.destination) {
+      const matchedCountry = ALL_COUNTRIES.find(
+        (c) => c.name === formData.destination
+      );
+      if (matchedCountry) {
+        setConverterCurrency(matchedCountry.currency);
       }
-
-      const destinationName =
-        tripResult?.destination?.replace(/[^a-zA-Z0-9]/g, "_") || "Trip";
-      pdf.save(`Itinerary_${destinationName}.pdf`);
-    } catch (pdfError) {
-      console.error("❌ เกิดข้อผิดพลาดในการสร้างไฟล์ :", pdfError);
-      alert("ไม่สามารถสร้างไฟล์ตารางการเดินทาง ได้ในขณะนี้");
-    } finally {
-      setIsExportingPDF(false);
     }
+  }, [formData.destination]);
+
+  const cleanNumberString = (str) => {
+    return str.replace(/,/g, "");
+  };
+
+  const formatNumberWithCommas = (value) => {
+    const clean = cleanNumberString(value);
+    if (isNaN(clean) || clean === "") return value;
+    const parts = clean.split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.join(".");
+  };
+
+  const handleAmountChange = (e) => {
+    const rawValue = e.target.value;
+    const formattedValue = formatNumberWithCommas(rawValue);
+    setForeignAmount(formattedValue);
   };
 
   const calculateToTHB = () => {
-    if (!exchangeData?.rates || !foreignAmount || isNaN(foreignAmount))
-      return "0.00";
+    const rawNumber = cleanNumberString(foreignAmount);
+    if (!converterCurrency || !rawNumber || isNaN(rawNumber)) return null;
+    if (!exchangeData?.rates) return null;
 
     const targetRateObj = exchangeData.rates.find(
       (item) => item.code === converterCurrency
     );
-    if (!targetRateObj) return "0.00";
+    if (!targetRateObj) return null;
 
-    let baseDivider = 1;
-    if (converterCurrency === "JPY" || converterCurrency === "KRW") {
-      baseDivider = 100;
-    } else if (converterCurrency === "VND") {
-      baseDivider = 1000;
-    }
-
-    const result =
-      (parseFloat(foreignAmount) / baseDivider) * targetRateObj.rate;
+    const result = parseFloat(rawNumber) * targetRateObj.rate;
     return result.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
   };
 
-  const countries = [
-    "Japan",
-    "South Korea",
-    "Thailand",
-    "Singapore",
-    "Taiwan",
-    "Hong Kong",
-    "China",
-    "Vietnam",
-    "United Kingdom",
-    "United States",
-    "France",
-    "Germany",
-    "Switzerland",
-    "Italy",
-    "Australia"
-  ];
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  // 🎯 ฟังก์ชันจัดการชื่อในเครื่องคำนวณเงินให้แสดงผลเป็น "CODE (ชื่อประเทศภาษาอังกฤษ)"
+  const getCleanCurrencyName = (currencyCode, rawName = "") => {
+    // 1. ถ้ามีรหัสสกุลเงินนี้ใน currencyToOfficialCountry ให้ดึงชื่อประเทศภาษาอังกฤษมาใช้เลย
+    if (currencyToOfficialCountry[currencyCode]) {
+      return `${currencyCode} (${currencyToOfficialCountry[currencyCode]})`;
+    }
+
+    // 2. ถ้าไม่มี (กรณีหลุด QC) ให้ล้างชื่อซ้ำๆ จาก API แล้วแสดงตามมีตามเกิด
+    const cleanName =
+      rawName.includes(" - ") &&
+      rawName.split(" - ")[0] === rawName.split(" - ")[1]
+        ? rawName.split(" - ")[0]
+        : rawName;
+    return cleanName ? `${currencyCode} (${cleanName})` : currencyCode;
   };
 
   const handleSubmit = async (e) => {
@@ -137,7 +470,6 @@ function App() {
     setLoading(true);
     setError("");
     setTripResult(null);
-    setActivePage("home");
 
     try {
       const response = await axios.post(
@@ -146,367 +478,483 @@ function App() {
       );
       setTripResult(response.data);
     } catch (err) {
-      console.error("Frontend Fetch Error:", err);
+      console.error(err);
       setError(
         err.response?.data?.error ||
-          "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์หลังบ้าน"
+          "เกิดข้อผิดพลาดในการเชื่อมต่อระบบ AI กรุณาลองใหม่อีกครั้ง"
       );
     } finally {
       setLoading(false);
     }
   };
 
+  const handleExportItineraryPDF = async () => {
+    if (!itineraryContainerRef.current) return;
+    setIsExportingPDF(true);
+    try {
+      const element = itineraryContainerRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Trip_Plan_${formData.destination}.pdf`);
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      alert("ไม่สามารถส่งออก PDF ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const mainCurrencies = [
+    "JPY",
+    "TWD",
+    "KRW",
+    "SGD",
+    "HKD",
+    "CNY",
+    "VND",
+    "GBP",
+    "USD",
+    "AUD"
+  ];
+
   return (
     <div
       style={{
-        maxWidth: "1200px",
-        margin: "0 auto",
-        padding: "20px",
-        fontFamily: "sans-serif",
-        color: "#333"
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)",
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        boxSizing: "border-box",
+        padding: "20px"
       }}
     >
-      {activePage === "budget" ? (
-        tripResult ? (
-          <BudgetSummary
-            tripResult={tripResult}
-            exchangeData={exchangeData}
-            onBack={() => setActivePage("home")}
-          />
-        ) : (
-          <div style={{ textAlign: "center", padding: "40px" }}>
-            <h3>⚠️ ยังไม่มีข้อมูลทริป กรุณากรอกข้อมูลและกดสร้างทริปก่อน </h3>
-            <button
-              onClick={() => setActivePage("home")}
-              style={{ padding: "10px 20px", cursor: "pointer" }}
-            >
-              กลับหน้าหลัก
-            </button>
-          </div>
-        )
-      ) : (
-        <>
-          {/* ==================== กล่อง Hero Banner แบบต่อรูปซ้ายขวาเนียน ๆ ==================== */}
+      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+        {!tripResult && (
           <div
-            style={{
-              position: "relative",
-              height: "280px",
-              borderRadius: "12px",
-              overflow: "hidden",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              marginBottom: "35px",
-              boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
-              backgroundColor: "#0b1526"
-            }}
+            style={{ display: "flex", flexDirection: "column", gap: "25px" }}
           >
-            {/* รูปฝั่งซ้าย: เครื่องบินเทคออฟ */}
+            {/* 🤖 1. ส่วนหัวหน้าปกแอป */}
             <div
               style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "60%",
-                height: "100%",
-                backgroundImage: `url(${planeBg})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                WebkitMaskImage:
-                  "linear-gradient(to right, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)",
-                maskImage:
-                  "linear-gradient(to right, rgba(0,0,0,1) 65%, rgba(0,0,0,0) 100%)"
-              }}
-            />
-
-            {/* รูปฝั่งขวา: วิวก้อนเมฆนอกหน้าต่าง */}
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                top: 0,
-                width: "55%",
-                height: "100%",
-                backgroundImage: `url(${cloudsBg})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                WebkitMaskImage:
-                  "linear-gradient(to left, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)",
-                maskImage:
-                  "linear-gradient(to left, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)"
-              }}
-            />
-
-            {/* แผ่นฟิล์มสีมืดเคลือบทับเพื่อให้ตัวหนังสือเด่นสะดุดตา */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background:
-                  "linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.5))",
-                zIndex: 1
-              }}
-            />
-
-            {/* โซนเนื้อหาตัวหนังสือหัวเว็บ */}
-            <div
-              style={{
-                zIndex: 2,
-                color: "white",
-                textAlign: "center",
-                padding: "20px"
+                display: "flex",
+                height: "180px",
+                borderRadius: "12px",
+                overflow: "hidden",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                position: "relative"
               }}
             >
-              <h1
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: "2.6rem",
-                  fontWeight: "bold",
-                  textShadow: "3px 3px 12px rgba(0, 0, 0, 0.85)",
-                  letterSpacing: "1px"
+                  flex: "1",
+                  backgroundImage: `url(${cloudsBg})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center"
+                }}
+              />
+              <div
+                style={{
+                  flex: "1",
+                  backgroundImage: `url(${planeBg})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center"
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  color: "white",
+                  textAlign: "center",
+                  padding: "20px",
+                  zIndex: 2,
+                  textShadow: "2px 2px 8px rgba(0,0,0,0.8)"
                 }}
               >
-                🤖 AI Travel Planner & Flight Matcher 🚀
-              </h1>
+                <h1
+                  style={{
+                    margin: "0 0 5px 0",
+                    fontSize: "30px",
+                    fontWeight: "800"
+                  }}
+                >
+                  🤖 AI Travel Planner & Flight Matcher 🚀
+                </h1>
+                <p style={{ margin: "0", fontSize: "15px", fontWeight: "500" }}>
+                  ค้นหาเที่ยวบินที่ใช่ จัดแจงทริปที่ชอบในไม่กี่วินาที
+                </p>
+              </div>
+            </div>
+
+            {/* 🗺️ 2. ส่วนฟอร์มกรอกข้อมูลการเดินทาง */}
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "30px",
+                borderRadius: "12px",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.04)"
+              }}
+            >
+              <h2
+                style={{
+                  margin: "0 0 10px 0",
+                  color: "#0284c7",
+                  fontSize: "24px",
+                  fontWeight: "bold"
+                }}
+              >
+                🗺️ กรอกรายละเอียดการเดินทางของคุณ
+              </h2>
               <p
                 style={{
-                  margin: "12px 0 0 0",
-                  fontSize: "1.15rem",
-                  opacity: 0.95,
-                  fontWeight: "500",
-                  textShadow: "2px 2px 6px rgba(0, 0, 0, 0.85)"
+                  margin: "0 0 25px 0",
+                  color: "#666",
+                  fontSize: "14px"
                 }}
               >
-                ค้นหาเที่ยวบินที่ใช่ จัดแจงทริปที่ชอบในไม่กี่วินาที
+                กรอกข้อมูลเพื่อให้ AI
+                อัจฉริยะช่วยออกแบบตารางท่องเที่ยวและค้นหาสายการบินที่คุ้มค่าที่สุด
               </p>
-            </div>
-          </div>
-          {/* =================================================================================== */}
-
-          <div
-            style={{
-              display: "flex",
-              gap: "25px",
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-              marginBottom: "30px"
-            }}
-          >
-            {/* === โซนกรอกข้อมูล (ซ้าย) === */}
-            <div
-              style={{
-                flex: "2",
-                minWidth: "350px",
-                background: "#ffffff",
-                padding: "20px",
-                borderRadius: "10px",
-                border: "1px solid #e0e0e0"
-              }}
-            >
-              <h3 style={{ margin: "0 0 15px 0", color: "#ff5a5f" }}>
-                📝 รายละเอียดการเดินทาง
-              </h3>
 
               <form
                 onSubmit={handleSubmit}
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "15px"
+                  gap: "18px"
                 }}
               >
-                <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                  <div style={{ flex: "1", minWidth: "180px" }}>
-                    <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                      📍 จุดหมายปลายทาง:
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "15px"
+                  }}
+                >
+                  {/* 🎯 ช่องเลือกประเทศทั่วโลก A-Z */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px"
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#444"
+                      }}
+                    >
+                      ✈️ จุดหมายปลายทาง
                     </label>
                     <select
                       name="destination"
                       value={formData.destination}
-                      onChange={handleChange}
+                      onChange={handleInputChange}
+                      required
                       style={{
-                        width: "100%",
                         padding: "10px",
-                        marginTop: "5px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc"
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        fontSize: "14px",
+                        background: "#fff"
                       }}
                     >
-                      {countries.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
+                      {ALL_COUNTRIES.map((country) => (
+                        <option key={country.name} value={country.currency}>
+                          {country.name}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div style={{ flex: "1", minWidth: "180px" }}>
-                    <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                      📅 วันที่ออกเดินทาง:
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px"
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#444"
+                      }}
+                    >
+                      📅 วันเดินทาง
                     </label>
                     <input
                       type="date"
                       name="departureDate"
                       value={formData.departureDate}
-                      onChange={handleChange}
+                      onChange={handleInputChange}
                       required
                       style={{
-                        width: "100%",
-                        padding: "8px",
-                        marginTop: "5px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc"
+                        padding: "10px",
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        fontSize: "14px"
                       }}
                     />
                   </div>
                 </div>
 
-                {/* แถวข้อมูล: Days | Travelers | Budget */}
-                <div style={{ display: "flex", gap: "15px", flexWrap: "wrap" }}>
-                  <div style={{ flex: "1", minWidth: "120px" }}>
-                    <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                      ⏳ จำนวนวันเดินทาง (Days):
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "15px"
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px"
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#444"
+                      }}
+                    >
+                      ⏳ จำนวนวัน (1-30 วัน)
                     </label>
                     <input
                       type="number"
                       name="days"
                       min="1"
+                      max="30"
                       value={formData.days}
-                      onChange={handleChange}
+                      onChange={handleInputChange}
                       required
                       style={{
-                        width: "100%",
-                        padding: "8px",
-                        marginTop: "5px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc"
+                        padding: "10px",
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        fontSize: "14px"
                       }}
                     />
                   </div>
-
-                  <div style={{ flex: "1", minWidth: "120px" }}>
-                    <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                      👥 จำนวนผู้ร่วมทริป (คน):
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px"
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#444"
+                      }}
+                    >
+                      👥 จำนวนผู้เดินทาง
                     </label>
                     <input
                       type="number"
                       name="travelers"
                       min="1"
-                      max="50"
                       value={formData.travelers}
-                      onChange={handleChange}
+                      onChange={handleInputChange}
                       required
                       style={{
-                        width: "100%",
-                        padding: "8px",
-                        marginTop: "5px",
-                        borderRadius: "4px",
+                        padding: "10px",
+                        borderRadius: "6px",
                         border: "1px solid #ccc",
-                        backgroundColor: "#fff"
+                        fontSize: "14px"
                       }}
                     />
                   </div>
+                </div>
 
-                  <div style={{ flex: "1", minWidth: "120px" }}>
-                    <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                      💰 งบประมาณรวม:
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "15px"
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px"
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#444"
+                      }}
+                    >
+                      💰 ระดับงบประมาณ
                     </label>
                     <select
                       name="budget"
                       value={formData.budget}
-                      onChange={handleChange}
+                      onChange={handleInputChange}
                       style={{
-                        width: "100%",
                         padding: "10px",
-                        marginTop: "5px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc"
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        fontSize: "14px",
+                        background: "#fff"
                       }}
                     >
-                      <option value="Economy">Economy (ประหยัด)</option>
-                      <option value="Standard">Standard (ปานกลาง)</option>
-                      <option value="Luxury">Luxury (หรูหรา)</option>
+                      <option value="Economy">Economy (แบบประหยัด)</option>
+                      <option value="Standard">Standard (แบบปานกลาง)</option>
+                      <option value="Luxury">Luxury (แบบหรูหรา)</option>
+                    </select>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px"
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#444"
+                      }}
+                    >
+                      🎫 รูปแบบสายการบิน
+                    </label>
+                    <select
+                      name="airlinePreference"
+                      value={formData.airlinePreference}
+                      onChange={handleInputChange}
+                      style={{
+                        padding: "10px",
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        fontSize: "14px",
+                        background: "#fff"
+                      }}
+                    >
+                      <option value="Low-cost">
+                        Low-cost (สายการบินประหยัด เช่น AirAsia , VietJet)
+                      </option>
+                      <option value="Full Service">
+                        Full Service (บริการเต็มรูปแบบ เช่น Thai Airways , ANA)
+                      </option>
+                      <option value="Luxury/First Class">
+                        Luxury/First Class (บริการแบบพรีเมียม เช่น Emirates ,
+                        Singapore Airlines)
+                      </option>
                     </select>
                   </div>
                 </div>
 
-                <div>
-                  <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                    ✈️ รูปแบบสายการบิน:
-                  </label>
-                  <select
-                    name="airlinePreference"
-                    value={formData.airlinePreference}
-                    onChange={handleChange}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "5px"
+                  }}
+                >
+                  <label
                     style={{
-                      width: "100%",
-                      padding: "10px",
-                      marginTop: "5px",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc"
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#444"
                     }}
                   >
-                    <option value="Low-cost">
-                      Low-cost (สายการบินประหยัด เช่น AirAsia , VietJet)
-                    </option>
-                    <option value="Full Service">
-                      Full Service (บริการเต็มรูปแบบ เช่น Thai Airways , ANA)
-                    </option>
-                    <option value="Luxury/First Class">
-                      Luxury/First Class (พรีเมียม เช่น Emirates , Singapore
-                      Airlines)
-                    </option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                    🎭 สไตล์การเดินทางหลัก (Travel Vibe):
+                    🎭 สไตล์การท่องเที่ยว
                   </label>
                   <select
                     name="travelStyle"
                     value={formData.travelStyle}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     style={{
-                      width: "100%",
                       padding: "10px",
-                      marginTop: "5px",
-                      borderRadius: "4px",
+                      borderRadius: "6px",
                       border: "1px solid #ccc",
-                      backgroundColor: "#fff"
+                      fontSize: "14px",
+                      background: "#fff"
                     }}
                   >
-                    <option value="Sightseeing">Sightseeing & Culture</option>
-                    <option value="Foodie">Culinary & Local Food</option>
-                    <option value="Nature & Adventure">Nature & Outdoor</option>
-                    <option value="Shopping & Lifestyle">
-                      Shopping & Urban Life
+                    <option value="Sightseeing">
+                      Sightseeing (เน้นแลนด์มาร์คถ่ายรูป)
                     </option>
-                    <option value="Relaxation & Wellness">
-                      Relaxation & Leisure
+                    <option value="Adventure">
+                      Adventure (ลุยๆ ธรรมชาติ แอดเวนเจอร์)
                     </option>
-                    <option value="Arts & Entertainment">
-                      Arts, Nightlife & Entertainment
+                    <option value="Relaxing">
+                      Relaxing (พักผ่อนชิลๆ คาเฟ่ ไม่เร่งรีบ)
+                    </option>
+                    <option value="Shopping & Food">
+                      Shopping & Food (เน้นช้อปปิ้ง หาของกินอร่อย)
+                    </option>
+                    <option value="Culture & History">
+                      Culture & History (ประวัติศาสตร์และวัฒนธรรมโบราณ)
+                    </option>
+                    <option value="Business">
+                      Business (เดินทางเชิงธุรกิจ แวะทำงาน)
                     </option>
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ fontWeight: "bold", fontSize: "14px" }}>
-                    🎨 ความสนใจเพิ่มเติม / ไลฟ์สไตล์:
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "5px"
+                  }}
+                >
+                  <label
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#444"
+                    }}
+                  >
+                    🎯 ความสนใจพิเศษ / สถานที่ที่ต้องไป
                   </label>
                   <textarea
                     name="interests"
                     value={formData.interests}
-                    onChange={handleChange}
-                    placeholder="เช่น Anime, Local food, Shopping"
+                    placeholder="เช่น Local Food, Nature , Shopping"
+                    onChange={handleInputChange}
                     style={{
-                      width: "100%",
                       padding: "10px",
-                      height: "70px",
-                      marginTop: "5px",
-                      borderRadius: "4px",
+                      borderRadius: "6px",
                       border: "1px solid #ccc",
+                      fontSize: "14px",
+                      minHeight: "80px",
                       resize: "vertical"
                     }}
                   />
@@ -516,435 +964,412 @@ function App() {
                   type="submit"
                   disabled={loading}
                   style={{
+                    marginTop: "10px",
                     padding: "14px",
-                    background: loading
-                      ? "linear-gradient(90deg, #ccc 25%, #bbb 50%, #ccc 75%)"
-                      : "#ff5a5f",
-                    backgroundSize: "200% 100%",
-                    animation: loading
-                      ? "shimmer 1.5s infinite linear"
-                      : "none",
+                    backgroundColor: loading ? "#ffcccb" : "#ff4d4f",
                     color: "white",
                     border: "none",
                     borderRadius: "6px",
-                    cursor: loading ? "not-allowed" : "pointer",
                     fontSize: "16px",
                     fontWeight: "bold",
-                    marginTop: "10px"
+                    cursor: loading ? "not-allowed" : "pointer",
+                    boxShadow: "0 4px 12px rgba(255, 77, 79, 0.3)"
                   }}
                 >
                   {loading
-                    ? "กำลังให้ AI จัดแจงตั๋วเครื่องบินและตารางเที่ยว... 🧠✈️"
-                    : "ค้นหาเที่ยวบินและวางแผนเที่ยวได้เลย! 🔥"}
+                    ? "⏳ กำลังคำนวณและจัดทริปด้วย AI..."
+                    : "ค้นหาเที่ยวบินและวางแผนเที่ยวได้เลย!"}
                 </button>
+
+                {error && (
+                  <div
+                    style={{
+                      padding: "10px",
+                      backgroundColor: "#fde8e8",
+                      borderRadius: "6px",
+                      color: "#e53e3e",
+                      fontSize: "14px",
+                      textAlign: "center"
+                    }}
+                  >
+                    {error}
+                  </div>
+                )}
               </form>
             </div>
 
-            {/* === พื้นที่อัตราแลกเปลี่ยน (ขวา) === */}
+            {/* 💵 3. เครื่องคำนวณเงินด่วนประจำทริป */}
             <div
               style={{
-                flex: "1",
-                minWidth: "300px",
-                background: "#fff",
-                padding: "20px",
-                borderRadius: "10px",
-                border: "1px solid #e0e0e0",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+                backgroundColor: "white",
+                padding: "30px",
+                borderRadius: "12px",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.04)"
               }}
             >
-              <h3 style={{ margin: "0 0 5px 0", color: "#333" }}>
-                อัตราแลกเปลี่ยนรายวัน
-              </h3>
-              <p
+              <h2
                 style={{
-                  fontSize: "12px",
-                  color: "#666",
-                  margin: "0 0 15px 0"
+                  margin: "0 0 5px 0",
+                  color: "#333",
+                  fontSize: "22px",
+                  fontWeight: "bold"
                 }}
               >
-                ฐานเงินบาท (THB) | อัปเดต:{" "}
-                {exchangeData ? exchangeData.date : "ตรวจเช็กเซิร์ฟเวอร์..."}
+                💵 ระบบคำนวณอัตราแลกเปลี่ยน
+              </h2>
+              <p
+                style={{
+                  margin: "0 0 20px 0",
+                  color: "#666",
+                  fontSize: "13px"
+                }}
+              >
+                {ratesLoading
+                  ? "⏳ กำลังโหลดเรตสดจากตลาดโลก..."
+                  : "คำนวณและเปรียบเทียบสกุลเงินต่างประเทศแบบ Real Time"}
               </p>
 
-              {ratesLoading ? (
-                <div
+              <div
+                style={{ display: "flex", gap: "10px", marginBottom: "20px" }}
+              >
+                <input
+                  type="text"
+                  placeholder="ใส่จำนวนเงินต่างประเทศ"
+                  value={foreignAmount}
+                  onChange={handleAmountChange}
                   style={{
-                    textAlign: "center",
-                    padding: "30px",
-                    color: "#ff5a5f",
+                    flex: "1.5",
+                    padding: "10px",
+                    borderRadius: "6px",
+                    border: "1px solid #ccc",
+                    fontSize: "14px"
+                  }}
+                />
+
+                <select
+                  value={converterCurrency}
+                  onChange={(e) => setConverterCurrency(e.target.value)}
+                  style={{
+                    flex: "1",
+                    padding: "10px",
+                    borderRadius: "6px",
+                    border: "1px solid #ccc",
+                    background: "#fff",
                     fontSize: "14px"
                   }}
                 >
-                  ⏳ รอการเชื่อมต่อจาก Port 5000...
-                </div>
-              ) : (
-                <>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: "14px"
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid #eee" }}>
-                        <th
-                          style={{
-                            padding: "10px 8px",
-                            textAlign: "left",
-                            color: "#666"
-                          }}
-                        >
-                          สกุลเงิน
-                        </th>
-                        <th style={{ padding: "10px 0", width: "10%" }}></th>
-                        <th
-                          style={{
-                            padding: "10px 8px",
-                            textAlign: "right",
-                            color: "#666"
-                          }}
-                        >
-                          Rate ราคา (THB)
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {exchangeData?.rates?.map((item, index) => {
-                        let displayRate = item.rate;
-                        if (item.code === "JPY" || item.code === "KRW") {
-                          displayRate = (item.rate / 100).toFixed(6);
-                        } else if (item.code === "VND") {
-                          displayRate = (item.rate / 1000).toFixed(6);
-                        } else {
-                          displayRate = Number(item.rate).toFixed(4);
-                        }
+                  <option value="">-- สกุลเงิน --</option>
 
-                        return (
-                          <tr
-                            key={index}
-                            style={{
-                              borderBottom: "1px solid #f5f5f5",
-                              backgroundColor:
-                                index % 2 === 0 ? "#fafafa" : "#fff"
-                            }}
-                          >
-                            <td
-                              style={{
-                                padding: "12px 8px",
-                                fontWeight: "500",
-                                color: "#333",
-                                width: "40%"
-                              }}
-                            >
-                              1 {item.code}{" "}
-                              <span style={{ color: "#666", fontSize: "13px" }}>
-                                ({item.name.replace(` (${item.code})`, "")})
-                              </span>
-                            </td>
-                            <td
-                              style={{
-                                padding: "12px 0",
-                                textAlign: "center",
-                                color: "#999",
-                                fontWeight: "500"
-                              }}
-                            >
-                              =
-                            </td>
-                            <td
-                              style={{
-                                padding: "12px 8px",
-                                textAlign: "right",
-                                color: "#2e7d32",
-                                fontWeight: "bold"
-                              }}
-                            >
-                              {displayRate} THB
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  {exchangeData?.rates
+                    ?.filter((item) => currencyToOfficialCountry[item.code])
+                    ?.map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {getCleanCurrencyName(item.code)}
+                      </option>
+                    ))}
+                </select>
+              </div>
 
-                  <hr
-                    style={{
-                      margin: "20px 0",
-                      border: "0",
-                      borderTop: "1px dashed #e0e0e0"
-                    }}
-                  />
-
-                  <div style={{ padding: "5px 0" }}>
-                    <h4
-                      style={{
-                        margin: "0 0 12px 0",
-                        color: "#333",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px"
-                      }}
-                    >
-                      🧮 เครื่องคำนวณเงินด่วน
-                    </h4>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "row",
-                        gap: "10px",
-                        marginBottom: "12px"
-                      }}
-                    >
-                      <input
-                        type="number"
-                        value={foreignAmount}
-                        onChange={(e) => setForeignAmount(e.target.value)}
-                        placeholder="ใส่จำนวนเงิน เช่น 25000"
-                        min="0"
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  padding: "18px",
+                  borderRadius: "8px",
+                  border: "1px solid #bbf7d0",
+                  textAlign: "center",
+                  marginBottom: "25px"
+                }}
+              >
+                {(() => {
+                  const resultTHB = calculateToTHB();
+                  if (resultTHB === null) {
+                    return (
+                      <span
                         style={{
-                          flex: "2",
-                          padding: "10px",
-                          borderRadius: "6px",
-                          border: "1px solid #ccc",
-                          fontSize: "14px"
-                        }}
-                      />
-
-                      <select
-                        value={converterCurrency}
-                        onChange={(e) => setConverterCurrency(e.target.value)}
-                        style={{
-                          flex: "1",
-                          padding: "10px",
-                          borderRadius: "6px",
-                          border: "1px solid #ccc",
-                          background: "#fff",
                           fontSize: "14px",
-                          cursor: "pointer"
+                          color: "#166534",
+                          fontWeight: "bold"
                         }}
                       >
-                        {exchangeData?.rates?.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {item.code}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div
-                      style={{
-                        background: "#f1f8e9",
-                        padding: "15px",
-                        borderRadius: "8px",
-                        border: "1px solid #dcedc8",
-                        textAlign: "center"
-                      }}
-                    >
+                        รอระบุจำนวนเงินและเลือกสกุลเงินด้านบน
+                      </span>
+                    );
+                  }
+                  return (
+                    <>
                       <span
                         style={{
                           fontSize: "13px",
-                          color: "#558b2f",
+                          color: "#166534",
                           display: "block",
-                          marginBottom: "4px",
-                          fontWeight: "500"
+                          marginBottom: "2px"
                         }}
                       >
                         คิดเป็นเงินไทยประมาณ
                       </span>
-                      <strong style={{ fontSize: "22px", color: "#2e7d32" }}>
-                        {calculateToTHB()}{" "}
-                        <span
-                          style={{
-                            fontSize: "16px",
-                            fontWeight: "bold",
-                            color: "#2e7d32",
-                            marginLeft: "4px"
-                          }}
-                        >
+                      <strong style={{ fontSize: "26px", color: "#15803d" }}>
+                        {resultTHB}{" "}
+                        <span style={{ fontSize: "15px", fontWeight: "bold" }}>
                           THB
                         </span>
                       </strong>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* === พื้นที่แสดงผลลัพธ์ === */}
-          {error && (
-            <div
-              style={{
-                color: "red",
-                padding: "15px",
-                background: "#fde8e8",
-                borderRadius: "6px",
-                marginBottom: "20px"
-              }}
-            >
-              ⚠️ {error}
-            </div>
-          )}
-
-          {tripResult && (
-            <div
-              style={{
-                background: "#f9f9f9",
-                padding: "25px",
-                borderRadius: "10px",
-                border: "1px solid #ddd",
-                marginTop: "20px"
-              }}
-            >
-              <h2>✨ ชื่อทริป: {tripResult.tripName}</h2>
-              <p style={{ fontSize: "15px", color: "#555" }}>
-                📍 <b>ปลายทาง:</b> {tripResult.destination} | ⏳ <b>เวลา:</b>{" "}
-                {tripResult.totalDays} วัน | 💰 <b>ระดับงบกิจกรรม:</b>{" "}
-                {tripResult.budgetLevel}
-              </p>
-
-              {tripResult.recommendedFlight && (
-                <div
-                  style={{
-                    background: "#e3f2fd",
-                    padding: "15px",
-                    borderRadius: "6px",
-                    marginBottom: "25px",
-                    borderLeft: "5px solid #2196f3"
-                  }}
-                >
-                  <h3 style={{ margin: "0 0 10px 0", color: "#0d47a1" }}>
-                    ✈️ ข้อมูลตั๋วเครื่องบินแนะนำ
-                  </h3>
-                  <p style={{ margin: "5px 0" }}>
-                    ... 🛫 <b>ประเภทตั๋ว:</b>{" "}
-                    {tripResult.recommendedFlight.flightType}
-                  </p>
-                  <p style={{ margin: "5px 0" }}>
-                    🏢 <b>สายการบิน:</b>{" "}
-                    {tripResult.recommendedFlight.suggestedAirlines}
-                  </p>
-                  <p style={{ margin: "5px 0" }}>
-                    💵 <b>ราคาไป-กลับโดยประมาณ:</b>{" "}
-                    <span style={{ color: "#2e7d32", fontWeight: "bold" }}>
-                      {tripResult.recommendedFlight.estimatedFlightCost}
-                    </span>
-                  </p>
-                  <p
-                    style={{ margin: "5px 0", fontSize: "14px", color: "#555" }}
-                  >
-                    💡 <b>คำแนะนำ:</b> {tripResult.recommendedFlight.flightTips}
-                  </p>
-
-                  {tripResult.recommendedFlight.bookingUrl && (
-                    <div style={{ marginTop: "15px" }}>
-                      <a
-                        href={tripResult.recommendedFlight.bookingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: "inline-block",
-                          padding: "10px 20px",
-                          backgroundColor: "#0064d2",
-                          color: "white",
-                          fontWeight: "bold",
-                          textDecoration: "none",
-                          borderRadius: "6px",
-                          boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
-                        }}
-                      >
-                        ✈️ เช็กและจองตั๋วเครื่องบินจริงบน Trip.com 🌐
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div style={{ marginTop: "25px", marginBottom: "25px" }}>
-                <button
-                  onClick={() => setActivePage("budget")}
-                  style={{
-                    width: "100%",
-                    padding: "15px",
-                    backgroundColor: "#2e7d32",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
-                  }}
-                >
-                  📊 ดูสรุปงบประมาณและ Breakdown ค่าใช้จ่ายในทริป (THB) 💸
-                </button>
+                    </>
+                  );
+                })()}
               </div>
 
-              <hr
-                style={{
-                  margin: "25px 0",
-                  border: "0",
-                  borderTop: "1px solid #ddd"
-                }}
-              />
-
-              <div
-                ref={itineraryContainerRef}
-                style={{
-                  background: "#ffffff",
-                  padding: "15px",
-                  borderRadius: "8px"
-                }}
-              >
-                {tripResult.itinerary?.map((item, idx) => (
-                  <div
-                    key={idx}
+              {/* 📊 4. ตารางอัตราแลกเปลี่ยนเฉพาะประเทศยอดฮิต (2 คอลัมน์) */}
+              <div style={{ marginTop: "20px" }}>
+                <h3
+                  style={{
+                    margin: "0 0 12px 0",
+                    color: "#444",
+                    fontSize: "15px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  💱 อัตราแลกเปลี่ยนเงินตราต่างประเทศ (THB)
+                </h3>
+                <div
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: "8px",
+                    overflow: "hidden"
+                  }}
+                >
+                  <table
                     style={{
-                      marginBottom: "20px",
-                      padding: "15px",
-                      background: "white",
-                      borderRadius: "6px",
-                      boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
-                      pageBreakInside: "avoid",
-                      breakInside: "avoid"
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "14px",
+                      textAlign: "left"
                     }}
                   >
-                    <h3 style={{ color: "#ff5a5f", marginTop: "0" }}>
-                      📅 วันที่ {item.day} - {item.theme}
-                    </h3>
-                    <ul style={{ paddingLeft: "20px", margin: "0" }}>
-                      {item.activities?.map((act, actIdx) => (
-                        <li key={actIdx} style={{ marginBottom: "12px" }}>
-                          <b>⏰ {act.time}</b> -{" "}
-                          <span style={{ color: "#333", fontWeight: "bold" }}>
-                            {act.locationName}
-                          </span>
-                          <p
+                    <thead style={{ backgroundColor: "#f9f9f9" }}>
+                      <tr>
+                        <th
+                          style={{
+                            padding: "12px 16px",
+                            color: "#666",
+                            borderBottom: "1px solid #eee",
+                            fontWeight: "600"
+                          }}
+                        >
+                          สกุลเงิน
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px 16px",
+                            color: "#666",
+                            borderBottom: "1px solid #eee",
+                            textAlign: "right",
+                            fontWeight: "600"
+                          }}
+                        >
+                          อัตราแลกเปลี่ยน
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ratesLoading ? (
+                        <tr>
+                          <td
+                            colSpan="2"
                             style={{
-                              margin: "4px 0",
-                              color: "#666",
-                              fontSize: "14px"
+                              padding: "16px",
+                              textAlign: "center",
+                              color: "#999"
                             }}
                           >
-                            {act.description}
-                          </p>
-                          <small style={{ color: "#999" }}>
-                            💵 ค่าใช้จ่าย: {act.estimatedCost} | 🌐 พิกัด:
-                            <a
-                              href={`http://googleusercontent.com/maps.google.com/?q=${act.latitude},${act.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: "#2196f3",
-                                fontWeight: "bold",
-                                marginLeft: "4px"
-                              }}
+                            กำลังโหลดข้อมูลดัชนีโลก...
+                          </td>
+                        </tr>
+                      ) : (
+                        exchangeData?.rates
+                          ?.filter((item) => mainCurrencies.includes(item.code))
+                          ?.map((item) => (
+                            <tr
+                              key={item.code}
+                              style={{ borderBottom: "1px solid #eee" }}
                             >
-                              {act.latitude}, {act.longitude} (คลิกเปิดแผนที่
-                              🗺️)
-                            </a>
+                              <td
+                                style={{
+                                  padding: "12px 16px",
+                                  fontWeight: "700",
+                                  color: "#0f172a"
+                                }}
+                              >
+                                1 {item.code}{" "}
+                                <span
+                                  style={{
+                                    fontWeight: "500",
+                                    color: "#475569"
+                                  }}
+                                >
+                                  (
+                                  {currencyToOfficialCountry[item.code] ||
+                                    item.name}
+                                  )
+                                </span>
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 16px",
+                                  textAlign: "right",
+                                  fontWeight: "700",
+                                  color: "#0f172a",
+                                  fontSize: "15px"
+                                }}
+                              >
+                                {item.rate.toFixed(4)}{" "}
+                                <span
+                                  style={{
+                                    fontSize: "13px",
+                                    fontWeight: "500",
+                                    color: "#64748b"
+                                  }}
+                                >
+                                  THB
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 📜 ส่วนแสดงตารางผลทริปเมื่อ AI ตอบกลับสำเร็จ */}
+        {tripResult && (
+          <div style={{ marginTop: "10px" }}>
+            <div style={{ marginBottom: "20px" }}>
+              <button
+                onClick={() => setTripResult(null)}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "white",
+                  color: "#0284c7",
+                  border: "2px solid #0284c7",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                ⬅️ กลับไปแก้ไขฟอร์มจัดทริปใหม่
+              </button>
+            </div>
+
+            <div
+              ref={itineraryContainerRef}
+              style={{
+                backgroundColor: "white",
+                padding: "35px",
+                borderRadius: "12px",
+                boxShadow: "0 4px 25px rgba(0,0,0,0.05)"
+              }}
+            >
+              <div
+                style={{
+                  borderBottom: "2px solid #efefef",
+                  paddingBottom: "15px",
+                  marginBottom: "25px"
+                }}
+              >
+                <h1
+                  style={{
+                    margin: "0 0 10px 0",
+                    color: "#0284c7",
+                    fontSize: "30px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  {tripResult.tripName || "แผนการท่องเที่ยวส่วนตัวของคุณ"}
+                </h1>
+                <p style={{ margin: "0", color: "#555", fontSize: "15px" }}>
+                  📍 จุดหมาย: <strong>{tripResult.destination}</strong> | ⏳
+                  จำนวน: <strong>{tripResult.totalDays} วัน</strong> | 💰
+                  งบโดยรวม: <strong>{tripResult.budgetLevel}</strong>
+                </p>
+              </div>
+
+              <BudgetSummary tripData={tripResult} />
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "30px",
+                  marginTop: "25px"
+                }}
+              >
+                {tripResult.itinerary?.map((dayPlan) => (
+                  <div
+                    key={dayPlan.day}
+                    style={{
+                      borderLeft: "4px solid #0284c7",
+                      paddingLeft: "15px"
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 12px 0",
+                        color: "#0284c7",
+                        fontSize: "18px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      🗓️ วันที่ {dayPlan.day} - {dayPlan.theme}
+                    </h3>
+                    <ul
+                      style={{
+                        listStyleType: "none",
+                        padding: "0",
+                        margin: "0",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px"
+                      }}
+                    >
+                      {dayPlan.activities?.map((activity, actIdx) => (
+                        <li
+                          key={actIdx}
+                          style={{
+                            backgroundColor: "#fdfdfd",
+                            padding: "12px 15px",
+                            borderRadius: "6px",
+                            border: "1px solid #f0f0f0"
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontWeight: "bold",
+                              color: "#e53e3e",
+                              marginRight: "10px"
+                            }}
+                          >
+                            ⏰ {activity.time}
+                          </span>
+                          <strong style={{ fontSize: "15px" }}>
+                            {activity.locationName}
+                          </strong>
+                          <p
+                            style={{
+                              margin: "5px 0",
+                              color: "#555",
+                              fontSize: "14px",
+                              lineHeight: "1.5"
+                            }}
+                          >
+                            {activity.description}
+                          </p>
+                          <small
+                            style={{ color: "#38a169", fontWeight: "bold" }}
+                          >
+                            💰 ค่าใช้จ่ายโดยประมาณ: {activity.estimatedCost}
                           </small>
                         </li>
                       ))}
@@ -983,9 +1408,9 @@ function App() {
                 </button>
               </div>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
