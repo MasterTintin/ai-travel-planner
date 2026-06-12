@@ -14,10 +14,11 @@ CORS(app)
 # 1. ตั้งค่า API Keys ผ่านตัวแปรระบบอย่างปลอดภัย
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 FLIGHT_API_KEY = os.getenv("FLIGHT_API_KEY")
+EXCHANGE_API_KEY = os.getenv("EXCHANGE_API_KEY")
 
 # รีเทิร์น Error เตือนล่วงหน้าหากลืมใส่ Key ในไฟล์ .env
 if not GOOGLE_API_KEY:
-    print("❌ เตือน: ไม่พบ API KEY ในไฟล์ .env กรุณาตรวจสอบ!")
+    print("❌ เตือน: ไม่พบ API KEY ในไฟล์ .env กรุณาตรวจสอบใหม่")
 else:
     genai.configure(api_key=GOOGLE_API_KEY)
 
@@ -32,166 +33,140 @@ def get_destination_iata(destination_name):
         "เกาหลีใต้": "ICN",
         "singapore": "SIN",      # สิงคโปร์
         "สิงคโปร์": "SIN",
-        "china": "PVG",          # เซี่ยงไฮ้ พูตง
-        "จีน": "PVG",
+        "hong kong": "HKG",      # ฮ่องกง
+        "ฮ่องกง": "HKG",
+        "china": "PEK",          # ปักกิ่ง
+        "จีน": "PEK",
         "vietnam": "SGN",        # โฮจิมินห์
         "เวียดนาม": "SGN",
-        "australia": "SYD",      # ซิดนีย์
-        "ออสเตรเลีย": "SYD",
-        "united kingdom": "LHR", # ลอนดอน
+        "united kingdom": "LHR", # ลอนดอน ฮีทโธรว์
         "อังกฤษ": "LHR",
-        "usa": "LAX",            # ลอสแอนเจลิส
-        "สหรัฐฯ": "LAX"
+        "united states": "JFK",  # นิวยอร์ก JFK
+        "อเมริกา": "JFK",
+        "france": "CDG",         # ปารีส ชาร์ลเดอโกล
+        "ฝรั่งเศส": "CDG",
+        "germany": "FRA",        # แฟรงก์เฟิร์ต
+        "เยอรมนี": "FRA",
+        "switzerland": "ZRH",    # ซูริค
+        "สวิตเซอร์แลนด์": "ZRH",
+        "italy": "FCO",          # โรม ฟิวมิชิโน
+        "อิตาลี": "FCO",
+        "australia": "SYD",      # ซิดนีย์
+        "ออสเตรเลีย": "SYD"
     }
-    return mapping.get(destination_name.lower().strip(), "TPE")
+    return mapping.get(destination_name.lower().strip(), "NRT")
 
-def get_realtime_flight_data(destination_code, departure_date):
-    """ยิงดึงข้อมูลราคาตั๋วเครื่องบินที่ถูกที่สุดขาเดียวจากกรุงเทพฯ (BKK)"""
+# =====================================================================
+# 1. API ดึงข้อมูลเที่ยวบินและราคาแนะนำ (Flight Matcher)
+# =====================================================================
+def get_mock_flight_recommendation(destination, airline_preference):
+    """ฟังก์ชัน Fallback ในกรณีที่ไม่ได้ใส่ FLIGHT_API_KEY หรือยิง API ไม่ผ่าน"""
+    return {
+        "flightType": f"{airline_preference} Round-trip Flight",
+        "suggestedAirlines": "ANA Airways / Japan Airlines (สายการบินบริการเต็มรูปแบบชั้นนำ)" if airline_preference == "Full Service" else "AirAsia X / Thai VietJet (สายการบินประหยัดเน้นคุ้มค่า)",
+        "estimatedFlightCost": "18,500 THB (ราคาไป-กลับโดยประมาณรวมภาษีแล้ว)" if airline_preference == "Full Service" else "9,800 THB (ราคาไป-กลับเริ่มต้นไม่รวมบริการเสริม)",
+        "flightTips": "แนะนำให้จองล่วงหน้าอย่างน้อย 6-8 สัปดาห์ เพื่อให้ได้เรตราคานี้ และควรเลือกบินไฟลท์ดึกถึงเช้าเพื่อประหยัดค่าโรงแรมไปได้ 1 คืน",
+        "bookingUrl": f"https://th.trip.com/flights/bangkok-to-{destination.lower()}/tickets-bkk-{get_destination_iata(destination).lower()}/?allianceid=3853112&sid=22421360"
+    }
+
+@app.route("/api/flight-recommendation", methods=["POST"])
+def get_flight_recommendation():
     try:
-        if not FLIGHT_API_KEY or "YOUR_FLIGHTAPI_KEY" in FLIGHT_API_KEY:
-            return None
-            
-        # ยิงดึงไฟล์บินตั๋วประหยัด (Economy) หน่วยเงินบาทไทย (THB)
-        url = f"https://api.flightapi.io/onewaytrip/{FLIGHT_API_KEY}/BKK/{destination_code}/{departure_date}/1/0/0/Economy/THB"
+        req_data = request.get_json() or {}
+        destination = req_data.get("destination", "Japan")
+        airline_preference = req_data.get("airlinePreference", "Full Service")
         
-        response = requests.get(url, timeout=7)
-        data = response.json()
-        
-        if data and "fares" in data and len(data["fares"]) > 0:
-            best_fare = data["fares"][0]
-            price_thb = float(best_fare.get("price", {}).get("amount", 0))
-            provider = best_fare.get("provider", "สายการบินชั้นนำ")
-            
-            return {
-                "price": round(price_thb),
-                "airline": provider
-            }
-        return None
-    except Exception as e:
-        print("FlightAPI Fetch Error (Skipping to fallback):", e)
-        return None
-
-# =====================================================================
-# API 1: ดึงอัตราแลกเปลี่ยนรายวัน เทียบเงินบาทไทย
-# =====================================================================
-@app.route('/api/exchange-rates', methods=['GET'])
-def get_exchange_rates():
-    try:
-        url = "https://open.er-api.com/v6/latest/THB"
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        
-        if data.get("result") == "success":
-            rates = data.get("rates", {})
-            
-            target_currencies = {
-                "JPY": {"name": "ญี่ปุ่น (JPY)", "base": 100},       
-                "KRW": {"name": "เกาหลีใต้ (KRW)", "base": 100},     
-                "VND": {"name": "เวียดนาม (VND)", "base": 1000},    
-                "SGD": {"name": "สิงคโปร์ (SGD)", "base": 1},
-                "USD": {"name": "สหรัฐฯ (USD)", "base": 1},
-                "EUR": {"name": "ยุโรป (EUR)", "base": 1},
-                "CNY": {"name": "จีน (CNY)", "base": 1},
-                "AUD": {"name": "ออสเตรเลีย (AUD)", "base": 1},
-                "GBP": {"name": "อังกฤษ (GBP)", "base": 1}
-            }
-            
-            formatted_rates = []
-            for code, config in target_currencies.items():
-                if code in rates:
-                    thb_per_unit = 1 / rates[code]
-                    final_rate = thb_per_unit * config["base"]
-                    rate_value = round(final_rate, 4)
-                    
-                    formatted_rates.append({
-                        "code": code,
-                        "name": config["name"],
-                        "baseUnit": f"{config['base']:,} {code}", 
-                        "rate": rate_value                                
-                    })
-                    
-            return jsonify({
-                "base": "THB",
-                "date": data.get("time_last_update_utc", "")[:16] + " UTC",
-                "rates": formatted_rates
-            })
-        else:
-            return jsonify({"error": "ไม่สามารถดึงข้อมูลอัตราแลกเปลี่ยนจาก API ต้นทางได้"}), 500
-    except Exception as e:
-        print("Exchange Rate Fetch Error:", e)
-        return jsonify({"error": f"Backend Error: {str(e)}"}), 500
-
-# =====================================================================
-# API 2: สร้างทริปแบบละเอียด + ผสมข้อมูลตั๋วเครื่องบิน Real-time จาก API
-# =====================================================================
-@app.route('/api/generate-trip', methods=['POST'])
-def generate_trip():
-    try:
-        user_input = request.json
-        destination = user_input.get("destination", "Japan")
-        departure_date = user_input.get("departureDate", "")
-        days = int(user_input.get("days", 1))
-        budget = user_input.get("budget", "Economy")
-        airline_preference = user_input.get("airlinePreference", "Full Service")
-        interests = user_input.get("interests", "")
-
-        # ค้นหารหัสสนามบินปลายทาง
         dest_iata = get_destination_iata(destination)
         
-        # สอยราคาตั๋วจริงจาก FlightAPI
-        real_flight = get_realtime_flight_data(dest_iata, departure_date)
+        if not FLIGHT_API_KEY or FLIGHT_API_KEY == "YOUR_FLIGHT_API_KEY":
+            mock_data = get_mock_flight_recommendation(destination, airline_preference)
+            return jsonify(mock_data)
+
+        url = "https://api.flightapi.io/onewaytrip"
+        params = {
+            "token": FLIGHT_API_KEY,
+            "from": "BKK",
+            "to": dest_iata,
+            "date": "2026-04-10",
+            "adults": 1,
+            "children": 0,
+            "infants": 0,
+            "cabin": "economy",
+            "currency": "THB"
+        }
         
-        if real_flight:
-            flight_context = f"ตรวจพบราคาตั๋วจริง ณ วันนี้ สายการบิน: {real_flight['airline']} ราคา: {real_flight['price']:,} THB"
-            suggested_cost_str = f"{real_flight['price']:,} THB (ราคา Real-time ล่าสุด)"
-            suggested_airline_str = real_flight['airline']
-        else:
-            flight_context = "ไม่พบข้อมูลตั๋วแบบ Real-time"
-            if dest_iata == "TPE":
-                suggested_cost_str = "8,500 - 15,000 THB (ราคาโดยประมาณ)"
-                suggested_airline_str = "EVA Air, China Airlines, Starlux Airlines, Thai Airways"
-            else:
-                suggested_cost_str = "12,000 - 22,000 THB (ราคาโดยประมาณ)"
-                suggested_airline_str = "Thai Airways, Japan Airlines, AirAsia"
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            flight_data = response.json()
+            fares = flight_data.get("fares", [])
+            if fares:
+                cheapest_fare = min(fares, key=lambda x: x.get("price", float('inf')))
+                price = cheapest_fare.get("price")
+                return jsonify({
+                    "flightType": f"{airline_preference} Flight (Real-time data)",
+                    "suggestedAirlines": f"เที่ยวบินรหัส {cheapest_fare.get('tripId', 'แนะนำ')} ค้นพบราคาพิเศษบนระบบ",
+                    "estimatedFlightCost": f"{price:,.2f} THB",
+                    "flightTips": "ราคานี้เป็นราคา Real-time ตรวจสอบสดใหม่จากระบบจองตั๋วเครื่องบินโลก",
+                    "bookingUrl": f"https://th.trip.com/flights/bangkok-to-{destination.lower()}/tickets-bkk-{dest_iata.lower()}/"
+                })
+        
+        return jsonify(get_mock_flight_recommendation(destination, airline_preference))
 
-        # ดีไซน์ Deep Link ไปเว็บ Trip.com ขาเดียว
-        trip_deep_link = f"https://th.trip.com/flights/bangkok-to-anywhere/tickets-bkk-{dest_iata.lower()}?dDate={departure_date}"
+    except Exception as e:
+        print(f"⚠️ Flight API Connection Failed: {str(e)}")
+        return jsonify(get_mock_flight_recommendation(request.get_json().get("destination", "Japan"), request.get_json().get("airlinePreference", "Full Service")))
 
-        # 1. เขียนข้อความสั่ง Bot พ่วงราคาตั๋วจริงเข้าไป
+# =====================================================================
+# 2. API สร้างตารางท่องเที่ยวรายวันด้วย AI (Gemini Planner)
+# =====================================================================
+@app.route("/api/generate-trip", methods=["POST"])
+def generate_trip():
+    try:
+        req_data = request.get_json()
+        
+        destination = req_data.get("destination", "Japan")
+        departure_date = req_data.get("departureDate", "")
+        days = int(req_data.get("days", 3))
+        travelers = int(req_data.get("travelers", 1))
+        budget = req_data.get("budget", "Standard")
+        airline_preference = req_data.get("airlinePreference", "Full Service")
+        travel_style = req_data.get("travelStyle", "Sightseeing")
+        interests = req_data.get("interests", "")
+
+        flight_recommendation = get_mock_flight_recommendation(destination, airline_preference)
+        if FLIGHT_API_KEY and FLIGHT_API_KEY != "YOUR_FLIGHT_API_KEY":
+            try:
+                dest_iata = get_destination_iata(destination)
+                url = f"https://api.flightapi.io/onewaytrip?token={FLIGHT_API_KEY}&from=BKK&to={dest_iata}&date=2026-04-10&adults=1&children=0&infants=0&cabin=economy&currency=THB"
+                f_res = requests.get(url, timeout=5)
+                if f_res.status_code == 200:
+                    fares = f_res.json().get("fares", [])
+                    if fares:
+                        cheapest = min(fares, key=lambda x: x.get("price", float('inf')))
+                        flight_recommendation["estimatedFlightCost"] = f"{cheapest.get('price'):,.2f} THB (อัปเดตสดจริง)"
+                        flight_recommendation["flightType"] = f"{airline_preference} Flight (Live Rate)"
+            except Exception:
+                pass
+
         system_instruction = f"""
-        คุณคือผู้เชี่ยวชาญด้านการจัดทริปท่องเที่ยวระดับโลก หน้าที่ของคุณคือสร้างแผนการเดินทางแบบเจาะลึก 
-        โดยอ้างอิงจากข้อมูลจริง สถานที่จริงที่มีอยู่จริงบนแผนที่ตามเงื่อนไขของผู้ใช้
+        คุณคือผู้เชี่ยวชาญด้านการวางแผนท่องเที่ยวระดับโลก หน้าที่ของคุณคือการจัดตารางการเดินทางท่องเที่ยวในประเทศ {destination} 
+        จำนวนทั้งหมด {days} วัน สำหรับผู้เดินทางจำนวน {travelers} คน 
+        ระดับงบประมาณโดยรวมคือ: {budget} วางแผนในสไตล์: {travel_style} และมีความสนใจพิเศษเพิ่มคือ: {interests}
         
-        ข้อมูลเงื่อนไขของผู้ใช้:
-        - ประเทศจุดหมายปลายทาง: {destination} (รหัสสนามบินเป้าหมายหลัก: {dest_iata})
-        - จำนวนวันเดินทาง: {days} วัน
-        - วันที่ออกเดินทาง: {departure_date}
-        - ระดับงบประมาณ: {budget}
-        - สไตล์สายการบิน: {airline_preference}
-        - ความสนใจพิเศษ/ไลฟ์สไตล์: {interests}
-
-        ข้อมูลตั๋วเครื่องบินดิบจากระบบภายนอก:
-        - {flight_context}
-
-        กฎในการสร้างเนื้อหา:
-        1. ห้ามเขียนคำบรรยายสั้นๆ ห้วนๆ ต้องระบุชื่อสถานที่จริงเสมอ (เช่น 'ตลาดกลางคืนซีเหมินติง กรุงไทเป')
-        2. ในแต่ละวัน จะต้องจัดทริปให้ละเอียดแบ่งออกเป็น 4 ช่วงเวลาเสมอ ได้แก่ '09:30' (เช้า), '12:00' (มื้อเที่ยง), '14:30' (บ่ายแก่ๆ), และ '18:30' (มื้อเย็น)
-        3. ในฟิลด์ 'description' ให้เขียนอธิบายเจาะลึก 3-4 ประโยค บรรยายบรรยากาศและกิจกรรมให้สอดรับไลฟ์สไตล์ {interests} ของผู้ใช้
-        4. แนะนำเที่ยวบินโดยอ้างอิงสายการบินและเรทราคาที่ส่งไปให้ในระบบดิบด้านบน และนำลิงก์จองนี้: '{trip_deep_link}' ยัดใส่ในฟิลด์ 'bookingUrl'
-        5. คำเตือนเรื่องรหัสสนามบิน: ในฟิลด์ 'flightTips' ให้เขียนอธิบายให้ตรงตามตัวแปรประเทศที่เลือกจริงเท่านั้น เช่น ถ้าจุดหมายปลายทางคือ {destination} และรหัสสนามบินคือ {dest_iata} ห้ามนำชื่อสนามบินหรือรหัสของประเทศอื่น (เช่น NRT/นาริตะ ของญี่ปุ่น) มาใส่เด็ดขาด! ให้เขียนแนะนำที่เกี่ยวกับ {dest_iata} เท่านั้น!!
-
-        คุณต้องตอบกลับมาเป็นข้อมูลรูปแบบ JSON เท่านั้น ห้ามมีข้อความเกริ่นนำ หรือปิดท้าย ห้ามใส่เครื่องหมาย ```json ครอบ โครงสร้าง JSON ต้องเป็นดังนี้:
+        กรุณาสร้างแผนการเดินทางที่เจาะลึก สนุกสนาน คุ้มค่า และส่งผลลัพธ์กลับมาในรูปแบบ 'JSON Object บริสุทธิ์เท่านั้น' ห้ามมีคำเกริ่นนำใดๆ ทั้งสิ้น 
+        โครงสร้างของ JSON Object ที่ต้องการส่งกลับไปให้ Frontend ต้องเป็นไปตาม Pattern นี้เป๊ะๆ:
         {{
-          "tripName": "ชื่อทริปภาษาไทยที่ตั้งให้ดูน่าตื่นเต้นและสร้างสรรค์",
+          "tripName": "ตั้งชื่อทริปภาษาไทยให้ดูตื่นตาตื่นใจและสร้างสรรค์เข้ากับไลฟ์สไตล์",
           "destination": "{destination}",
           "totalDays": {days},
           "budgetLevel": "{budget}",
           "recommendedFlight": {{
-            "flightType": "{airline_preference} Airlines",
-            "suggestedAirlines": "{suggested_airline_str}",
-            "estimatedFlightCost": "{suggested_cost_str}",
-            "bookingUrl": "{trip_deep_link}",
-            "flightTips": "เขียนคำแนะนำที่อ้างอิงถึงประเทศ {destination} และรหัสสนามบิน {dest_iata} เท่านั้น โดยระบุให้ชัดเจนและแนะนำตรวจสอบเวลาบินจริงล่วงหน้าผ่านลิงก์"
+            "flightType": "{flight_recommendation['flightType']}",
+            "suggestedAirlines": "{flight_recommendation['suggestedAirlines']}",
+            "estimatedFlightCost": "{flight_recommendation['estimatedFlightCost']}",
+            "flightTips": "{flight_recommendation['flightTips']}",
+            "bookingUrl": "{flight_recommendation['bookingUrl']}"
           }},
           "itinerary": [
             {{
@@ -200,7 +175,7 @@ def generate_trip():
               "activities": [
                 {{
                   "time": "09:30",
-                  "locationName": "ชื่อสถานที่และย่านจริง",
+                  "locationName": "ชื่อสถานที่และย่านจริงในประเทศนั้นๆ",
                   "description": "คำบรรยายแผนการท่องเที่ยวแบบละเอียด 3-4 ประโยคชวนน่าติดตาม",
                   "estimatedCost": "150 - 300 THB หรือ ฟรี",
                   "latitude": 25.0330,
@@ -212,7 +187,7 @@ def generate_trip():
         }}
         """
 
-        # 2. เรียกใช้โมเดล Gemini
+        # 2. เรียกใช้ Gemini
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(system_instruction)
         
@@ -230,9 +205,54 @@ def generate_trip():
         trip_data = json.loads(response_text.strip())
         return jsonify(trip_data)
 
+    except json.JSONDecodeError as je:
+        print("❌ JSON Decode Error from Gemini:", str(je))
+        return jsonify({"error": "AI สร้างฟอร์แมตข้อมูลผิดพลาดกรุณากดลองอีกครั้ง"}), 500
     except Exception as e:
-        print("Generate Trip AI Error:", e)
-        return jsonify({"error": f"หลังบ้านเกิดข้อผิดพลาดในการประมวลผล AI: {str(e)}"}), 500
+        print("❌ General Error:", str(e))
+        return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+# =====================================================================
+# 3. API อัตราแลกเปลี่ยนเงินด่วนทั่วโลก Real-time (ExchangeRate-API)
+# =====================================================================
+@app.route("/api/exchange-rates", methods=["GET"])
+def get_exchange_rates():
+    try:
+        # 1. ยิงไปขอเรตเงินแบบ Real-time ทั่วโลก โดยใช้เงินบาท (THB) เป็นฐานหลัก
+        url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/latest/THB"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        # ตรวจสอบว่า API ภายนอกส่งข้อมูลสำเร็จหรือไม่
+        if data.get("result") == "success":
+            raw_rates = data["conversion_rates"]
+            formatted_rates = []
+            
+            for currency_code, currency_rate in raw_rates.items():
+                # ใช้สูตรกลับด้าน: เอา 1 ไปหาร เพื่อให้ได้ค่า 1 Foreign Currency = X THB
+                thb_rate = 1 / currency_rate if currency_rate != 0 else 0
+                
+                formatted_rates.append({
+                    "code": currency_code,
+                    "name": currency_code,
+                    "rate": thb_rate
+                })
+            
+            # 3. รีเทิร์นข้อมูลชุดใหญ่ระดับโลกส่งต่อให้หน้าบ้าน React ทันที
+            return jsonify({
+                "date": data.get("time_last_update_utc", "Real-time")[:16], # วันเวลาที่อัปเดตเรตล่าสุด
+                "rates": formatted_rates
+            })
+        else:
+            return jsonify({
+                "error": "Failed to fetch from ExchangeRate-API",
+                "details": data.get("error-type", "Unknown error")
+            }), 500
+            
+    except Exception as e:
+        print(f"❌ Exchange Rate Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
