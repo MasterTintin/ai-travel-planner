@@ -10,9 +10,18 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
   // === ฟังก์ชันสกัดตัวเลขจาก String ===
   const extractNumber = (text) => {
     if (!text) return 0;
-    const cleanedText = text.toString().replace(/,/g, "");
-    const match = cleanedText.match(/\d+(\.\d+)?/);
-    return match ? parseFloat(match[0]) : 0;
+
+    const cleaned = text.toString().replace(/,/g, "");
+
+    const numbers = cleaned.match(/\d+(\.\d+)?/g);
+
+    if (!numbers) return 0;
+
+    if (numbers.length === 1) {
+      return parseFloat(numbers[0]);
+    }
+
+    return numbers.reduce((sum, n) => sum + parseFloat(n), 0);
   };
 
   // === ค้นหา สกุลเงิน และ Exchange Rate ===
@@ -104,7 +113,7 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
   const flightCostRaw = extractNumber(
     tripResult?.recommendedFlight?.estimatedFlightCost
   );
-  const flightCostTHB = flightCostRaw;
+  const flightCostTHB = tripResult?.budgetSummary?.flightCost || flightCostRaw;
 
   let totalActivitiesCostForeign = 0;
   let totalActivitiesCostTHB = 0;
@@ -129,7 +138,27 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
       };
     }) || [];
 
-  const grandTotalTHB = flightCostTHB + totalActivitiesCostTHB;
+  const grandTotalTHB =
+    tripResult?.budgetSummary?.grandTotal ||
+    flightCostTHB + totalActivitiesCostTHB;
+
+  console.log("========== DEBUG ==========");
+  console.log(JSON.stringify(tripResult, null, 2));
+
+  console.log(
+    "estimatedFlightCost =",
+    tripResult?.recommendedFlight?.estimatedFlightCost
+  );
+
+  console.log("budgetSummary =", tripResult?.budgetSummary);
+
+  console.log("flightCostTHB =", flightCostTHB);
+
+  console.log("totalActivitiesCostTHB =", totalActivitiesCostTHB);
+
+  console.log("grandTotalTHB =", grandTotalTHB);
+
+  console.log("===========================");
 
   return (
     <div
@@ -149,21 +178,6 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
           marginBottom: "20px"
         }}
       >
-        <button
-          onClick={onBack}
-          style={{
-            background: "#7f8c8d",
-            color: "white",
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "4px",
-            cursor: "pointer",
-            fontWeight: "bold"
-          }}
-        >
-          ⬅️ กลับหน้าหลัก
-        </button>
-
         {/* ปุ่มดาวน์โหลด PDF เวอร์ชันอัปเกรดความเร็ว */}
         <button
           onClick={handleExportPDF}
@@ -203,7 +217,7 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
           }}
         >
           <h1 style={{ margin: 0, fontSize: "24px", color: "#2f4f4f" }}>
-            📊 สรุปงบประมาณทริปอย่างละเอียด
+            📊 สรุปงบประมาณทริปทั้งหมด
           </h1>
           <span
             style={{
@@ -249,8 +263,7 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
               color: "#52c41a"
             }}
           >
-            ฿{grandTotalTHB.toLocaleString()}{" "}
-            <span style={{ fontSize: "20px", color: "#fff" }}>THB</span>
+            ฿{grandTotalTHB.toLocaleString()}
           </h2>
         </div>
 
@@ -277,7 +290,7 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
               ✈️ ค่าตั๋วเครื่องบินรวม
             </h3>
             <p style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>
-              ฿{flightCostTHB.toLocaleString()} THB
+              ฿{flightCostTHB.toLocaleString()}
             </p>
           </div>
           <div
@@ -294,7 +307,12 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
               🎟️ ค่ากิจกรรมและการเดินทาง
             </h3>
             <p style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>
-              ฿{totalActivitiesCostTHB.toLocaleString()} THB
+              ฿
+              {(
+                (tripResult?.budgetSummary?.activityCost || 0) +
+                  (tripResult?.budgetSummary?.transportCost || 0) ||
+                totalActivitiesCostTHB
+              ).toLocaleString()}
             </p>
           </div>
         </div>
@@ -326,7 +344,7 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
                 }}
               >
                 <th style={{ padding: "12px" }}>วันเดินทาง</th>
-                <th style={{ padding: "12px" }}>ไฮไลท์ประจำวัน</th>
+                <th style={{ padding: "12px" }}>แผนการเที่ยวประจำวัน</th>
                 {!isTHB && (
                   <th style={{ padding: "12px", textAlign: "right" }}>
                     ต่างประเทศ ({currencyCode})
@@ -350,7 +368,7 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
                     วันที่ {day.day}
                   </td>
                   <td style={{ padding: "12px", color: "#64748b" }}>
-                    {day.theme}
+                    🗺️ {day.theme}
                   </td>
                   {!isTHB && (
                     <td style={{ padding: "12px", textAlign: "right" }}>
@@ -372,6 +390,116 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
             </tbody>
           </table>
         </div>
+        {/* ✅ ปุ่มจองเครื่องบิน Trip.com — ใต้ตารางรายวัน */}
+        {(() => {
+          const dest = (tripResult?.destination || "")
+            .toLowerCase()
+            .replace(/\s+/g, "-");
+          const iataMap = {
+            japan: "nrt",
+            ญี่ปุ่น: "nrt",
+            taiwan: "tpe",
+            ไต้หวัน: "tpe",
+            "south korea": "icn",
+            korea: "icn",
+            เกาหลีใต้: "icn",
+            singapore: "sin",
+            สิงคโปร์: "sin",
+            "hong kong": "hkg",
+            ฮ่องกง: "hkg",
+            china: "pek",
+            จีน: "pek",
+            vietnam: "sgn",
+            เวียดนาม: "sgn",
+            "united kingdom": "lhr",
+            อังกฤษ: "lhr",
+            "united states": "jfk",
+            อเมริกา: "jfk",
+            france: "cdg",
+            ฝรั่งเศส: "cdg",
+            germany: "fra",
+            เยอรมนี: "fra",
+            australia: "syd",
+            ออสเตรเลีย: "syd",
+            italy: "fco",
+            อิตาลี: "fco",
+            switzerland: "zrh",
+            สวิตเซอร์แลนด์: "zrh"
+          };
+
+          // หา IATA code
+          const destKey = (tripResult?.destination || "").toLowerCase().trim();
+          const iata = iataMap[destKey] || "nrt";
+
+          // แปลงวันที่จาก tripResult.departureDate → YYYYMMDD สำหรับ Trip.com
+          let dateParam = "";
+          const rawDate = tripResult?.departureDate || "";
+          if (rawDate) {
+            dateParam = rawDate.replace(/-/g, "");
+          }
+
+          const bookingUrl =
+            tripResult?.recommendedFlight?.bookingUrl ||
+            `https://th.trip.com/flights/bangkok-to-${dest}/tickets-bkk-${iata}/${dateParam ? `?depdate=${dateParam}&` : "?"}allianceid=3853112&sid=22421360`;
+
+          return (
+            <div style={{ marginTop: "24px", textAlign: "center" }}>
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "14px 32px",
+                  backgroundColor: "#1677ff",
+                  color: "white",
+                  borderRadius: "8px",
+                  textDecoration: "none",
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  boxShadow: "0 4px 12px rgba(22,119,255,0.35)",
+                  transition: "background 0.2s"
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#0958d9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#1677ff")
+                }
+              >
+                🛫 ค้นหาและจองเที่ยวบินไป {tripResult?.destination} — Trip.com
+                {rawDate && (
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "normal",
+                      opacity: 0.85
+                    }}
+                  >
+                    (
+                    {new Date(rawDate).toLocaleDateString("th-TH", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric"
+                    })}
+                    )
+                  </span>
+                )}
+              </a>
+              <p
+                style={{
+                  margin: "8px 0 0 0",
+                  fontSize: "12px",
+                  color: "#94a3b8"
+                }}
+              >
+                เปรียบเทียบราคาทุกสายการบิน และจองได้ในคลิกเดียวบน Trip.com
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

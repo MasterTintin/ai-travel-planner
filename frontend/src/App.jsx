@@ -373,7 +373,7 @@ function App() {
   const [ratesLoading, setRatesLoading] = useState(true);
   const [converterCurrency, setConverterCurrency] = useState("JPY");
   const [foreignAmount, setForeignAmount] = useState("25,000");
-
+  const [savedTrips, setSavedTrips] = useState([]);
   const itineraryContainerRef = useRef(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
@@ -476,6 +476,10 @@ function App() {
         "http://127.0.0.1:5000/api/generate-trip",
         formData
       );
+
+      console.log("AI RESPONSE");
+      console.log(response.data);
+
       setTripResult(response.data);
     } catch (err) {
       console.error(err);
@@ -485,6 +489,32 @@ function App() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveTrip = async () => {
+    if (!tripResult) return;
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/api/save-trip", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(tripResult)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("🎉 บันทึกทริปสำเร็จ");
+        setSavedTrips((prev) => [...prev, data]);
+      } else {
+        alert("❌ บันทึกไม่สำเร็จ");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ เชื่อมต่อ Backend ไม่ได้");
     }
   };
 
@@ -707,7 +737,7 @@ function App() {
                         color: "#444"
                       }}
                     >
-                      📅 วันเดินทาง
+                      📅 วันที่ออกเดินทาง
                     </label>
                     <input
                       type="date"
@@ -746,7 +776,7 @@ function App() {
                         color: "#444"
                       }}
                     >
-                      ⏳ จำนวนวัน (1-30 วัน)
+                      ⏳ จำนวนวันเดินทาง (1-30 วัน)
                     </label>
                     <input
                       type="number"
@@ -778,7 +808,7 @@ function App() {
                         color: "#444"
                       }}
                     >
-                      👥 จำนวนผู้เดินทาง
+                      👥 จำนวนผู้เดินทาง (คน)
                     </label>
                     <input
                       type="number"
@@ -866,14 +896,16 @@ function App() {
                       }}
                     >
                       <option value="Low-cost">
-                        Low-cost (สายการบินประหยัด เช่น AirAsia , VietJet)
+                        🟢 Low-cost — แบบประหยัดสุดคุ้ม (เช่น AirAsia, VietJet,
+                        Nok Air)
                       </option>
                       <option value="Full Service">
-                        Full Service (บริการเต็มรูปแบบ เช่น Thai Airways , ANA)
+                        🔵 Full Service — แบบบริการครบวงจร (เช่น Thai Airways,
+                        ANA, JAL)
                       </option>
                       <option value="Luxury/First Class">
-                        Luxury/First Class (บริการแบบพรีเมียม เช่น Emirates ,
-                        Singapore Airlines)
+                        🟣 Luxury / First Class — แบบพรีเมียมระดับ (เช่น
+                        Emirates, Singapore Airlines, Qatar)
                       </option>
                     </select>
                   </div>
@@ -911,10 +943,10 @@ function App() {
                       Sightseeing (เน้นแลนด์มาร์คถ่ายรูป)
                     </option>
                     <option value="Adventure">
-                      Adventure (ลุยๆ ธรรมชาติ แอดเวนเจอร์)
+                      Adventure (ชมธรรมชาติ แอดเวนเจอร์)
                     </option>
                     <option value="Relaxing">
-                      Relaxing (พักผ่อนชิลๆ คาเฟ่ ไม่เร่งรีบ)
+                      Relaxing (พักผ่อนชิลๆ ไม่เร่งรีบ)
                     </option>
                     <option value="Shopping & Food">
                       Shopping & Food (เน้นช้อปปิ้ง หาของกินอร่อย)
@@ -942,12 +974,12 @@ function App() {
                       color: "#444"
                     }}
                   >
-                    🎯 ความสนใจพิเศษ / สถานที่ที่ต้องไป
+                    🎯 ออกแบบทริปของคุณ
                   </label>
                   <textarea
                     name="interests"
                     value={formData.interests}
-                    placeholder="เช่น Local Food, Nature , Shopping"
+                    placeholder="ระบุสถานที่ท่องเที่ยว, สิ่งที่อยากทำ, เมืองที่อยากไป หรือความสนใจพิเศษ"
                     onChange={handleInputChange}
                     style={{
                       padding: "10px",
@@ -1296,7 +1328,7 @@ function App() {
                 </p>
               </div>
 
-              <BudgetSummary tripData={tripResult} />
+              <BudgetSummary tripResult={tripResult} />
 
               <div
                 style={{
@@ -1386,6 +1418,25 @@ function App() {
                   paddingTop: "20px"
                 }}
               >
+                <button
+                  onClick={handleSaveTrip}
+                  style={{
+                    width: "100%",
+                    padding: "15px",
+                    backgroundColor: "#ff4d4f",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                    marginBottom: "15px",
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                  }}
+                >
+                  ❤️ Save Trip
+                </button>
+
                 <button
                   onClick={handleExportItineraryPDF}
                   disabled={isExportingPDF}
