@@ -3,6 +3,10 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+console.log("===============");
+console.log("Gemini Key:");
+console.log(process.env.GEMINI_API_KEY);
+console.log("===============");
 const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export const generateTrip = async (req, res) => {
@@ -44,12 +48,22 @@ export const generateTrip = async (req, res) => {
       "destination": "${destination}",
       "totalDays": ${days},
       "budgetLevel": "${budget}",
-      "recommendedFlight": {
-        "flightType": "e.g., Low-cost Airlines or Full Service Airlines",
-        "suggestedAirlines": "e.g., AirAsia, Scoot or Thai Airways, ANA",
-        "estimatedFlightCost": "e.g., 8,000 - 12,000 THB (Round-trip)",
-        "flightTips": "A 1-2 sentence recommendation for booking this flight."
-      },
+      "recommendedFlight":{
+        "flightType":"Full Service",
+        "suggestedAirlines":"ANA / JAL",
+        "estimatedFlightCost":18500,
+        "displayFlightCost":"18,500 THB",
+        "flightTips":"..."
+    },
+
+    "budgetSummary":{
+        "flightCost":18500,
+        "activityCost":9500,
+        "transportCost":2500,
+        "hotelCost":12000,
+        "grandTotal":42500
+    },
+    
       "itinerary": [
         {
           "day": 1,
@@ -61,7 +75,8 @@ export const generateTrip = async (req, res) => {
               "description": "Engaging description of what to do there (Write in Thai language)",
               "latitude": 0.0,
               "longitude": 0.0,
-              "estimatedCost": "Estimated cost string in Local currency or THB"
+              "estimatedCost": 1200,
+              "displayCost": "500 - 2,000 THB"
             }
           ]
         }
