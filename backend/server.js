@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import tripRoutes from "./routes/tripRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 dotenv.config();
 
@@ -24,7 +25,8 @@ app.get("/", (req, res) => {
   res.send("AI Travel Planner Backend is running beautifully! 🚀");
 });
 
-app.use("/api", tripRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/trips", tripRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is pumping cleanly on port ${PORT} 🔥`);

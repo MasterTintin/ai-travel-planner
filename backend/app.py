@@ -160,264 +160,95 @@ def generate_trip():
 คุณคือผู้เชี่ยวชาญด้านการวางแผนท่องเที่ยวระดับโลกและนักออกแบบแอป Travel Planner
 
 ภารกิจของคุณคือสร้างแผนการเดินทางที่เหมือนแอปท่องเที่ยวจริง
-สำหรับประเทศ {destination}
+สร้างแผนท่องเที่ยวสำหรับ {destination}
 
 ข้อมูลผู้เดินทาง
-
-- จำนวนวัน: {days} วัน
-- จำนวนผู้เดินทาง: {travelers} คน
+- จำนวนวัน: {days}
+- จำนวนผู้เดินทาง: {travelers}
 - งบประมาณ: {budget}
-- รูปแบบการท่องเที่ยว: {travel_style}
-- ความสนใจพิเศษ: {interests}
+- รูปแบบการเที่ยว: {travel_style}
+- ความสนใจ: {interests}
 - วันเดินทาง: {departure_date}
 
-ข้อกำหนดสำคัญมาก
+ข้อมูลเที่ยวบินแนะนำ
 
-1. ต้องสร้างกิจกรรม 3-4 กิจกรรมต่อวัน
+flightType: {flight_recommendation["flightType"]}
+suggestedAirlines: {flight_recommendation["suggestedAirlines"]}
+estimatedFlightCost: {flight_recommendation["estimatedFlightCost"]}
+flightTips: {flight_recommendation["flightTips"]}
+bookingUrl: {flight_recommendation["bookingUrl"]}
 
-2. ทุกกิจกรรมต้องมีเวลาแบบ HH:MM เท่านั้น
+กฎการสร้างแผน
 
-ตัวอย่าง
+1. สร้างกิจกรรม 3-4 กิจกรรมต่อวัน
 
-08:00
-10:30
-13:00
-15:30
-18:00
-20:00
-
-ห้ามใช้
-
-- เช้า
-- สาย
-- บ่าย
-- เย็น
-- ค่ำ
-
-เป็นค่า time เด็ดขาด
-
-3. เวลาต้องเรียงลำดับ
-
-เช่น
-
+2. ใช้เวลาแบบ HH:MM เท่านั้น
+ตัวอย่าง:
 08:00
 11:00
 14:00
 18:00
 
-4. locationName ต้องเป็นสถานที่จริง
+3. เวลาในแต่ละวันต้องเรียงตามลำดับจริง
 
-5. description ต้องเป็นภาษาไทย
+4. เลือกเฉพาะสถานที่จริงที่มีอยู่จริง
 
-ความยาวอย่างน้อย 80-150 คำ
-หรือประมาณ 4-8 ประโยค
+5. กิจกรรมต้องสอดคล้องกับ travelStyle และ interests ของผู้ใช้
 
-6. estimatedCost ให้ใช้รูปแบบ
+6. description ต้องเป็นภาษาไทย 4-7 ประโยค
+อธิบาย:
+- สถานที่คืออะไร
+- จุดเด่นคืออะไร
+- ควรทำอะไรที่นี่
+- มีอาหาร ของฝาก หรือจุดถ่ายรูปอะไรน่าสนใจ
+- คำแนะนำพิเศษสำหรับนักท่องเที่ยว
 
+7. estimatedCost ต้องสมจริง
+
+ตัวอย่าง:
 ฟรี
-
-หรือ
-
 300 THB
-
-หรือ
-
 300 - 800 THB
 
-7. latitude และ longitude ต้องเป็นค่าจริงของสถานที่นั้น
+ห้ามใช้ "ฟรี" สำหรับ:
+Restaurant
+Cafe
+Market
+Shopping
+Department Store
+Outlet
+Anime Store
 
-8. theme ต้องเป็นชื่อธีมของวัน
-
-9. recommendedFlight ใช้ข้อมูลนี้
-
-flightType:
-{flight_recommendation["flightType"]}
-
-suggestedAirlines:
-{flight_recommendation["suggestedAirlines"]}
-
-estimatedFlightCost:
-{flight_recommendation["estimatedFlightCost"]}
-
-flightTips:
-{flight_recommendation["flightTips"]}
-
-bookingUrl:
-{flight_recommendation["bookingUrl"]}
-
-10. ส่งกลับมาเป็น JSON เท่านั้น
-
-ห้ามเขียนคำอธิบาย
-ห้ามเขียน markdown
-ห้ามใส่ ```json
-
-11. estimatedCost ต้องสอดคล้องกับกิจกรรม
-
-- ถ้าเป็นร้านอาหาร ต้องมีค่าใช้จ่ายเสมอ
-- ถ้าเป็นตลาด แหล่งช้อปปิ้ง ถนนคนเดิน หรือย่านการค้า
-  ห้ามกำหนดเป็น "ฟรี"
-  ให้ประมาณค่าใช้จ่ายสำหรับการซื้อของหรือของฝาก เช่น
-  300 - 1,000 THB
-  หรือ
-  500 - 2,000 THB
-
-- ถ้าเป็นพิพิธภัณฑ์หรือสถานที่มีค่าเข้า
-  ต้องมีค่าเข้าชมจริงหรือโดยประมาณ
-
-- ถ้าเป็นสวนสาธารณะ ศาลเจ้า วัด หรือจุดชมวิวฟรี
-  สามารถใช้คำว่า "ฟรี" ได้
-
-- ถ้าเป็นการเดินทาง
-  ต้องมีค่าเดินทางโดยประมาณ
-
-ห้ามใช้ estimatedCost = "ฟรี"
-สำหรับสถานที่ประเภท
-
-- Market
-- Shopping
-- Restaurant
-- Cafe
-- Department Store
-- Anime Store
-- Outlet
-
-กิจกรรมต้องคำนึงถึงเวลาเดินทางจริง
-
-- หลังสนามบินควรมีเวลาเดินทางเข้าเมือง 1-2 ชั่วโมง
-- หลังเช็คอินไม่ควรไปสถานที่ไกลเกินไป
-- กิจกรรมกลางคืนควรอยู่ในย่านเดียวกัน
-
-12. estimatedCost ต้องสะท้อนพฤติกรรมนักท่องเที่ยวจริง
-
-ห้ามกำหนดเป็น "ฟรี"
-หากกิจกรรมมีวัตถุประสงค์เพื่อการกิน ดื่ม ช้อปปิ้ง หรือซื้อของฝาก
-
-ให้ประเมินค่าใช้จ่ายขั้นต่ำที่นักท่องเที่ยวทั่วไปมักใช้
-
-13. description ต้องมีคุณภาพเหมือนแอปท่องเที่ยวระดับพรีเมียม
-
-แต่ละกิจกรรมต้องมีรายละเอียด 4-7 ประโยค
-
-โดยควรประกอบด้วย
-
-- สถานที่นี้มีชื่อเสียงเรื่องอะไร
-- ทำไมจึงควรไป
-- นักท่องเที่ยวควรทำกิจกรรมอะไรที่นี่
-- มีจุดถ่ายรูป อาหาร หรือของขึ้นชื่ออะไร
-- บรรยากาศเป็นอย่างไร
-- หากเหมาะสมให้แนะนำสิ่งที่ไม่ควรพลาด
-
-ห้ามเขียนเพียงคำอธิบายสั้นๆ
-ให้เขียนเหมือนนายกำลังแนะนำสถานที่ท่องเที่ยวจริง
-
-14. แต่ละสถานที่ควรมี Recommendation พิเศษ
-
-เช่น
-
-- เมนูอาหารที่ไม่ควรพลาด
-- จุดถ่ายรูปยอดนิยม
-- ร้านอนิเมะหรือร้านของฝากแนะนำ
-- จุดชมวิว
-- เคล็ดลับสำหรับนักท่องเที่ยว
-
-15. AI ต้องทำหน้าที่เหมือนไกด์ท่องเที่ยวส่วนตัว
-
-อธิบายสถานที่ด้วยภาษาที่น่าเที่ยว
-สร้างแรงจูงใจให้นักท่องเที่ยวอยากไป
-แนะนำจุดเด่น อาหาร ของฝาก จุดถ่ายรูป และกิจกรรมที่ไม่ควรพลาด
-
-16. ทุก activity ต้องอธิบายว่า
-
-- สถานที่นี้คืออะไร
-- ทำไมสถานที่นี้ถึงน่าสนใจ
-- นักท่องเที่ยวจะได้ประสบการณ์อะไร
-- มีจุดเด่นหรือไฮไลต์อะไร
-- คำแนะนำพิเศษในการเที่ยว
-
-17. เพิ่ม field ใหม่ชื่อ
-
-"travelTip"
-
-เช่น
-
-"travelTip":"ควรมาในช่วงเย็นเพื่อชมแสงไฟและหลีกเลี่ยงช่วงคนเยอะ"
-
-18. เพิ่ม field ใหม่ชื่อ
-
-"highlight"
-
-เป็น array
-
-่เช่น
-
-"highlight":[
-  "Animate Akihabara",
-  "Mandarake Complex",
-  "Gachapon Hall"
-]
-
-19. นายต้องเลือกสถานที่ให้สอดคล้องกับ travelStyle และ interests ของผู้ใช้อย่างชัดเจน พร้อมอธิบายเหตุผลใน description
-
-20. ทุก activity ต้องระบุ latitude และ longitude ที่ถูกต้องของสถานที่จริง
-
-21. ทุก activity ต้องมี googleMapsUrl
-
-รูปแบบต้องเป็น
-
-https://www.google.com/maps?q=latitude,longitude
-
-ตัวอย่าง
-
-latitude: 35.6586
-longitude: 139.7454
-
-googleMapsUrl:
-https://www.google.com/maps?q=35.6586,139.7454
-
-ห้ามเว้น field นี้เด็ดขาด
-
-22. ห้ามเว้นว่าง latitude, longitude และ googleMapsUrl
-
-23. พิกัดต้องสอดคล้องกับ locationName จริงเท่านั้น
-
-24. ทุก activity ต้องมี nearestStation
-
-25. nearestStation ต้องเป็นสถานีรถไฟหรือสถานีรถไฟใต้ดินที่ใกล้ที่สุด
-
-26. ถ้าสถานที่ไม่มีสถานีรถไฟใกล้เคียง ให้ระบุเป็น "N/A"
-
-27. ห้ามละเว้น field ใด ๆ ที่ปรากฏใน JSON Schema
-
-28. ทุก activity ต้องมี field ต่อไปนี้ครบถ้วน
+8. ทุก activity ต้องมีข้อมูลครบ:
 
 time
 locationName
 description
 estimatedCost
+travelTip
+highlight
+nearestStation
 latitude
 longitude
 googleMapsUrl
-nearestStation
-travelTip
-highlight
 
-29. ก่อนส่ง JSON ให้ตรวจสอบอีกครั้งว่า
+9. latitude และ longitude ต้องเป็นพิกัดจริงของสถานที่นั้น
 
-* latitude ไม่เป็น 0
-* longitude ไม่เป็น 0
-* googleMapsUrl สร้างจาก latitude และ longitude
-* nearestStation ไม่เว้นว่าง
-* highlight มีอย่างน้อย 3 รายการ
-* travelTip มีอย่างน้อย 1 ประโยค
+googleMapsUrl ต้องอยู่ในรูปแบบ:
 
-30. JSON ต้องสอดคล้องกับ Schema 100%
+https://www.google.com/maps?q=latitude,longitude
 
-ห้ามละเว้น field ใดๆ
-ห้ามเปลี่ยนชื่อ field
-ห้ามส่ง field ไม่ครบ
+10. highlight ต้องมีอย่างน้อย 3 รายการ
 
-31. หากไม่ทราบพิกัดจริง ห้ามสร้างข้อมูลขึ้นมาเอง
-ให้เลือกสถานที่อื่นแทน
+11. travelTip ต้องมีอย่างน้อย 1 ประโยค
+
+12. ส่งกลับเป็น JSON เท่านั้น
+ห้ามใช้ Markdown
+ห้ามใช้ ```json
+ห้ามมีข้อความอื่นนอก JSON
+
+JSON ต้องตรงตาม Schema ด้านล่าง 100%
+
 
 
 ```python
@@ -480,7 +311,7 @@ JSON Schema
 
                 # 2. เรียกใช้ Gemini
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash"
+            model_name="gemini-2.0-flash"
         )
 
         response = model.generate_content(
@@ -513,36 +344,31 @@ JSON Schema
         return jsonify({"error": str(e)}), 500
 
 # =====================================================================
-# 3. API อัตราแลกเปลี่ยนเงินด่วนทั่วโลก Real-time (ExchangeRate-API)
+# 3. API อัตราแลกเปลี่ยนเงินด่วนทั่วโลก (Mocked ชั่วคราวเพื่อประหยัด Quota)
 # =====================================================================
 @app.route("/api/exchange-rates", methods=["GET"])
 def get_exchange_rates():
     try:
-        url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/latest/THB"
-        response = requests.get(url, timeout=10)
-        data = response.json()
+        # บันทึก log บอกตัวเองใน Terminal สักหน่อยว่าตอนนี้กำลังใช้ Mock อยู่นะ
+        print("ℹ️ Exchange Rate: ใช้ข้อมูลจำลอง (Mock Data) เพื่อเซฟโควตา API")
         
-        if data.get("result") == "success":
-            raw_rates = data["conversion_rates"]
-            formatted_rates = []
-            
-            for currency_code, currency_rate in raw_rates.items():
-                thb_rate = 1 / currency_rate if currency_rate != 0 else 0
-                formatted_rates.append({
-                    "code": currency_code,
-                    "name": currency_code,
-                    "rate": thb_rate
-                })
-            
-            return jsonify({
-                "date": data.get("time_last_update_utc", "Real-time")[:16],
-                "rates": formatted_rates
-            })
-        else:
-            return jsonify({
-                "error": "Failed to fetch from ExchangeRate-API",
-                "details": data.get("error-type", "Unknown error")
-            }), 500
+        # สร้างข้อมูลอัตราแลกเปลี่ยนจำลองนิ่ง ๆ ไว้ (1 Foreign Currency = X THB)
+        # นายสามารถปรับตัวเลขเรตตรงนี้ให้ใกล้เคียงความจริงตามใจชอบได้เลยครับ
+        mock_rates = [
+            {"code": "THB", "name": "THB", "rate": 1.0},
+            {"code": "USD", "name": "USD", "rate": 36.50},  # 1 USD = 36.50 THB
+            {"code": "JPY", "name": "JPY", "rate": 0.23},   # 1 JPY = 0.23 THB
+            {"code": "KRW", "name": "KRW", "rate": 0.026},  # 1 KRW = 0.026 THB
+            {"code": "EUR", "name": "EUR", "rate": 39.20},  # 1 EUR = 39.20 THB
+            {"code": "SGD", "name": "SGD", "rate": 27.00},  # 1 SGD = 27.00 THB
+            {"code": "TPE", "name": "TWD", "rate": 1.13}    # 1 TWD = 1.13 THB
+        ]
+        
+        # รีเทิร์นโครงสร้าง JSON รูปแบบเดิมเป๊ะ ๆ กลับไป เพื่อไม่ให้หน้าบ้าน React พัง
+        return jsonify({
+            "date": "Mocked (Saved Quota)",
+            "rates": mock_rates
+        })
             
     except Exception as e:
         print(f"❌ Exchange Rate Error: {str(e)}")

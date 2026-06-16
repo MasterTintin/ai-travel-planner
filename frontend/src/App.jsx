@@ -376,6 +376,7 @@ function App() {
   const [savedTrips, setSavedTrips] = useState([]);
   const itineraryContainerRef = useRef(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [aiEditLoading, setAiEditLoading] = useState(false);
 
   // ดึงข้อมูลอัตราแลกเปลี่ยนจาก API
   useEffect(() => {
@@ -392,6 +393,11 @@ function App() {
       }
     };
     fetchRates();
+  }, []);
+
+  // 📚 โหลดรายการทริปที่บันทึกไว้จาก Backend ตั้งแต่ตอนเปิดหน้าเว็บ
+  useEffect(() => {
+    fetchTrips();
   }, []);
 
   // ซิงค์สกุลเงินอัตโนมัติเมื่อมีการเลือกประเทศฝั่งซ้าย
@@ -434,7 +440,7 @@ function App() {
     );
     if (!targetRateObj) return null;
 
-    const result = parseFloat(rawNumber) * targetRateObj.rate;
+    const result = parseFloat(rawNumber) / targetRateObj.rate;
     return result.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -476,10 +482,6 @@ function App() {
         "http://127.0.0.1:5000/api/generate-trip",
         formData
       );
-
-      console.log("AI RESPONSE");
-      console.log(response.data);
-
       setTripResult(response.data);
     } catch (err) {
       console.error(err);
@@ -489,6 +491,16 @@ function App() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 📚 ดึงรายการทริปที่บันทึกไว้ทั้งหมดจาก Backend
+  const fetchTrips = async () => {
+    try {
+      const response = await axios.get("http://127.0.0.1:5000/api/trips");
+      setSavedTrips(response.data);
+    } catch (err) {
+      console.error("โหลดรายการทริปไม่สำเร็จ:", err);
     }
   };
 
@@ -508,13 +520,68 @@ function App() {
 
       if (response.ok) {
         alert("🎉 บันทึกทริปสำเร็จ");
-        setSavedTrips((prev) => [...prev, data]);
+        // โหลดรายการใหม่จาก Backend เพื่อให้ได้ id ที่เอาไว้เปิด/ลบ/แก้ไขได้จริง
+        fetchTrips();
       } else {
         alert("❌ บันทึกไม่สำเร็จ");
       }
     } catch (err) {
       console.error(err);
       alert("❌ เชื่อมต่อ Backend ไม่ได้");
+    }
+  };
+
+  // 📂 เปิดทริปเก่ากลับมาดูอีกครั้ง
+  const handleOpenTrip = (trip) => {
+    setTripResult(trip);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // 🗑 ลบทริปออกจากระบบ
+  const handleDeleteTrip = async (id) => {
+    if (!id) {
+      alert(
+        "ทริปนี้ยังไม่มี ID จาก Backend เลยลบไม่ได้ ลองรีเฟรชหน้าเว็บก่อนนะ"
+      );
+      return;
+    }
+
+    const confirmed = window.confirm("ต้องการลบทริปนี้จริง ๆ ใช่ไหม?");
+    if (!confirmed) return;
+
+    try {
+      await axios.delete(`http://127.0.0.1:5000/api/trips/${id}`);
+      fetchTrips(); // โหลดรายการใหม่หลังลบเสร็จ
+    } catch (err) {
+      console.error("ลบทริปไม่สำเร็จ:", err);
+      alert("❌ ลบทริปไม่สำเร็จ");
+    }
+  };
+
+  // ✏️ ให้ AI ช่วยแก้ไขทริปเฉพาะจุดที่เราอยากเปลี่ยน
+  const handleEditTrip = async (trip) => {
+    const editRequest = window.prompt(
+      "อยากให้ AI แก้ไขอะไรในทริปนี้?\n(เช่น: เปลี่ยนวันที่ 3 ไปเที่ยวภูเขาไฟฟูจิ)"
+    );
+
+    // ถ้ากดยกเลิก หรือไม่ได้พิมพ์อะไรเลย ก็ไม่ต้องทำอะไรต่อ
+    if (!editRequest || !editRequest.trim()) return;
+
+    try {
+      setAiEditLoading(true);
+      const response = await axios.post("http://127.0.0.1:5000/api/edit-trip", {
+        oldTrip: trip,
+        editRequest: editRequest
+      });
+
+      // แสดงทริปเวอร์ชันที่ AI แก้ไขแล้วทันที
+      setTripResult(response.data);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error("AI แก้ไขทริปไม่สำเร็จ:", err);
+      alert("❌ AI แก้ไขทริปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setAiEditLoading(false);
     }
   };
 
@@ -716,7 +783,7 @@ function App() {
                       }}
                     >
                       {ALL_COUNTRIES.map((country) => (
-                        <option key={country.name} value={country.currency}>
+                        <option key={country.name} value={country.name}>
                           {country.name}
                         </option>
                       ))}
@@ -896,16 +963,16 @@ function App() {
                       }}
                     >
                       <option value="Low-cost">
-                        🟢 Low-cost — แบบประหยัดสุดคุ้ม (เช่น AirAsia, VietJet,
-                        Nok Air)
+                        Low-cost — แบบประหยัดสุดคุ้ม (เช่น AirAsia, VietJet, Nok
+                        Air)
                       </option>
                       <option value="Full Service">
-                        🔵 Full Service — แบบบริการครบวงจร (เช่น Thai Airways,
-                        ANA, JAL)
+                        Full Service — แบบบริการครบวงจร (เช่น Thai Airways, ANA,
+                        JAL)
                       </option>
                       <option value="Luxury/First Class">
-                        🟣 Luxury / First Class — แบบพรีเมียมระดับ (เช่น
-                        Emirates, Singapore Airlines, Qatar)
+                        Luxury / First Class — แบบพรีเมียม (เช่น Emirates,
+                        Singapore Airlines, Qatar)
                       </option>
                     </select>
                   </div>
@@ -1275,6 +1342,125 @@ function App() {
           </div>
         )}
 
+        {/* ✈️ ทริปที่บันทึกไว้ของฉัน (My Trips) — แสดงเฉพาะหน้าแรก */}
+        {!tripResult && (
+          <div
+            style={{
+              marginTop: "20px",
+              backgroundColor: "white",
+              padding: "25px",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+              marginBottom: "20px"
+            }}
+          >
+            <h2 style={{ margin: "0 0 15px 0", color: "#0284c7" }}>
+              📚 ทริปที่บันทึกไว้ของฉัน (My Trips)
+            </h2>
+
+            {savedTrips.length === 0 ? (
+              <p style={{ color: "#666" }}>ยังไม่มีทริปที่บันทึกไว้</p>
+            ) : (
+              savedTrips.map((trip, index) => (
+                <div
+                  key={trip.id ?? index}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                    padding: "15px",
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    marginBottom: "10px",
+                    background: "#fafafa"
+                  }}
+                >
+                  <div style={{ minWidth: "180px" }}>
+                    <h3
+                      style={{
+                        margin: "0 0 4px 0",
+                        fontSize: "16px",
+                        color: "#0f172a"
+                      }}
+                    >
+                      {trip.tripName || trip.destination || "My Trip"}
+                    </h3>
+                    <p
+                      style={{
+                        margin: "0",
+                        fontSize: "13px",
+                        color: "#666"
+                      }}
+                    >
+                      📍 {trip.destination}
+                      {trip.totalDays ? ` | ⏳ ${trip.totalDays} วัน` : ""}
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "wrap"
+                    }}
+                  >
+                    <button
+                      onClick={() => handleOpenTrip(trip)}
+                      style={{
+                        padding: "8px 14px",
+                        backgroundColor: "#0284c7",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      📂 เปิดทริป
+                    </button>
+
+                    <button
+                      onClick={() => handleEditTrip(trip)}
+                      disabled={aiEditLoading}
+                      style={{
+                        padding: "8px 14px",
+                        backgroundColor: aiEditLoading ? "#bdc3c7" : "#8b5cf6",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: aiEditLoading ? "not-allowed" : "pointer",
+                        fontSize: "13px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      {aiEditLoading ? "⏳ AI กำลังแก้..." : "✏️ AI Edit"}
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteTrip(trip.id)}
+                      style={{
+                        padding: "8px 14px",
+                        backgroundColor: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      🗑 Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* 📜 ส่วนแสดงตารางผลทริปเมื่อ AI ตอบกลับสำเร็จ */}
         {tripResult && (
           <div style={{ marginTop: "10px" }}>
@@ -1328,7 +1514,10 @@ function App() {
                 </p>
               </div>
 
-              <BudgetSummary tripResult={tripResult} />
+              <BudgetSummary
+                tripResult={tripResult}
+                exchangeData={exchangeData}
+              />
 
               <div
                 style={{

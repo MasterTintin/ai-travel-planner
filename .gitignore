@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# environment
+.env
+.env.local
+frontend/.env
+backend/.env
+
+# vite
+.vite/
+dist/
+build/
+
+# local data
+backend/trips.json
+backend/data/
+
+# logs
+*.log
+
+# vscode
+.vscode/

@@ -3,15 +3,12 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-console.log("===============");
-console.log("Gemini Key:");
-console.log(process.env.GEMINI_API_KEY);
-console.log("===============");
+console.log("✅ Gemini API Loaded");
+
 const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export const generateTrip = async (req, res) => {
   try {
-    // 1. รับค่าตัวแปรฟิลด์ใหม่ มาจากหน้าบ้านเพิ่ม
     const {
       budget,
       destination,
@@ -21,69 +18,97 @@ export const generateTrip = async (req, res) => {
       airlinePreference
     } = req.body;
 
+    // Validation
+    if (
+      !budget ||
+      !destination ||
+      !days ||
+      !departureDate ||
+      !airlinePreference
+    ) {
+      return res.status(400).json({
+        error: "กรุณากรอกข้อมูลให้ครบ"
+      });
+    }
+
+    const safeInterests = interests?.trim() || "General Travel";
+
     const model = ai.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
+      model: "gemini-2.0-flash",
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
     });
 
-    // 2. ปรับ Prompt เพื่อบังคับให้คิดข้อมูลตั๋วเครื่องบินและงบประมาณ
-    const prompt = `Create a highly personalized day-by-day travel itinerary and flight recommendation for a trip to ${destination}.
-    Strict Constraints:
-    - Duration: ${days} days
-    - Ground Budget Level: ${budget}
-    - Traveler Interests: ${interests}
-    - Departure Date from Bangkok (BKK/DMK): ${departureDate}
-    - Flight Tier Preference: ${airlinePreference}
+    const prompt = `
+Create a highly personalized travel itinerary.
 
-    For the "recommendedFlight" object:
-    - Base on the flight tier "${airlinePreference}" for departure date ${departureDate}.
-    - "flightType" should reflect the tier.
-    - "suggestedAirlines" should list 2-3 realistic airlines matching that tier.
-    - "estimatedFlightCost" should be a realistic round-trip estimate in THB.
-    - "flightTips" should give a useful dynamic tip based on traveling around ${departureDate}.
+Requirements:
+- Destination: ${destination}
+- Duration: ${days} days
+- Budget: ${budget}
+- Interests: ${safeInterests}
+- Departure Date: ${departureDate}
+- Flight Preference: ${airlinePreference}
 
-    Return ONLY a raw JSON object matching the schema below. Do NOT wrap in markdown.
+Rules:
+
+1. Generate realistic travel plan.
+2. Write descriptions in Thai.
+3. Include realistic costs.
+4. Return ONLY raw JSON.
+5. Do NOT use markdown.
+6. estimatedFlightCost MUST be NUMBER.
+7. estimatedCost MUST be NUMBER.
+8. displayCost MUST be string.
+9. Include budgetSummary.
+
+JSON Schema:
+
+{
+  "tripName": "Trip Title",
+  "destination": "${destination}",
+  "totalDays": ${days},
+  "budgetLevel": "${budget}",
+
+  "recommendedFlight": {
+    "flightType": "Full Service",
+    "suggestedAirlines": "ANA / JAL",
+    "estimatedFlightCost": 18500,
+    "displayFlightCost": "18,500 THB",
+    "flightTips": "Book early."
+  },
+
+  "budgetSummary": {
+    "flightCost": 18500,
+    "activityCost": 9500,
+    "transportCost": 2500,
+    "hotelCost": 12000,
+    "grandTotal": 42500
+  },
+
+  "itinerary": [
     {
-      "tripName": "A creative title for this specific trip",
-      "destination": "${destination}",
-      "totalDays": ${days},
-      "budgetLevel": "${budget}",
-      "recommendedFlight":{
-        "flightType":"Full Service",
-        "suggestedAirlines":"ANA / JAL",
-        "estimatedFlightCost":18500,
-        "displayFlightCost":"18,500 THB",
-        "flightTips":"..."
-    },
-
-    "budgetSummary":{
-        "flightCost":18500,
-        "activityCost":9500,
-        "transportCost":2500,
-        "hotelCost":12000,
-        "grandTotal":42500
-    },
-    
-      "itinerary": [
+      "day": 1,
+      "theme": "Daily Theme",
+      "activities": [
         {
-          "day": 1,
-          "theme": "Core theme or focus of this day",
-          "activities": [
-            {
-              "time": "HH:MM",
-              "locationName": "Precise name of the place",
-              "description": "Engaging description of what to do there (Write in Thai language)",
-              "latitude": 0.0,
-              "longitude": 0.0,
-              "estimatedCost": 1200,
-              "displayCost": "500 - 2,000 THB"
-            }
-          ]
+          "time": "09:00",
+          "locationName": "Location",
+          "description": "รายละเอียดภาษาไทย",
+          "latitude": 35.0,
+          "longitude": 139.0,
+          "estimatedCost": 1200,
+          "displayCost": "500 - 2,000 THB"
         }
       ]
-    }`;
+    }
+  ]
+}
+`;
 
     const result = await model.generateContent(prompt);
+
     let responseText = result.response.text().trim();
 
     if (responseText.startsWith("```")) {
@@ -95,10 +120,12 @@ export const generateTrip = async (req, res) => {
     }
 
     const tripData = JSON.parse(responseText);
-    res.json(tripData);
+
+    return res.status(200).json(tripData);
   } catch (error) {
     console.error("Gemini Controller Error:", error);
-    res.status(500).json({
+
+    return res.status(500).json({
       error: "เกิดข้อผิดพลาดในการประมวลผล",
       details: error.message
     });
