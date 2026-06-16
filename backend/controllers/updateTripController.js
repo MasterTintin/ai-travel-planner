@@ -13,7 +13,11 @@ export const updateTrip = async (req, res) => {
       trips = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
     }
 
-    const index = trips.findIndex((trip) => trip.id === id);
+    const userId = req.user.id;
+
+    const index = trips.findIndex(
+      (trip) => trip.id === id && trip.userId === userId
+    );
 
     if (index === -1) {
       return res.status(404).json({

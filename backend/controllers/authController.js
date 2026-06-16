@@ -1,7 +1,24 @@
 import fs from "fs";
+import path from "path";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
 const FILE_PATH = "./data/users.json";
+
+// สร้างโฟลเดอร์ ./data ถ้ายังไม่มี (กัน writeFileSync พังตอน register ครั้งแรก)
+const ensureDataDir = () => {
+  const dir = path.dirname(FILE_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+};
+
+// อ่านรายชื่อ user จากไฟล์ (ใช้ซ้ำทั้ง register และ login)
+const readUsers = () => {
+  if (!fs.existsSync(FILE_PATH)) return [];
+  const fileData = fs.readFileSync(FILE_PATH, "utf8");
+  return fileData ? JSON.parse(fileData) : [];
+};
 
 // REGISTER
 export const register = async (req, res) => {
@@ -14,30 +31,28 @@ export const register = async (req, res) => {
       });
     }
 
-    let users = [];
-
-    if (fs.existsSync(FILE_PATH)) {
-      users = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
-    }
+    const users = readUsers();
 
     const existingUser = users.find((user) => user.username === username);
-
     if (existingUser) {
       return res.status(400).json({
         error: "Username already exists"
       });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = {
       id: Date.now(),
       username,
-      password,
+      password: hashedPassword,
       role: "user",
-      createdAt: new Date()
+      createdAt: new Date().toISOString()
     };
 
     users.push(newUser);
 
+    ensureDataDir();
     fs.writeFileSync(FILE_PATH, JSON.stringify(users, null, 2));
 
     res.status(201).json({
@@ -46,7 +61,6 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-
     res.status(500).json({
       error: "Register Failed"
     });
@@ -58,17 +72,24 @@ export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    let users = [];
-
-    if (fs.existsSync(FILE_PATH)) {
-      users = JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
+    if (!username || !password) {
+      return res.status(400).json({
+        error: "Username and Password required"
+      });
     }
 
-    const user = users.find(
-      (u) => u.username === username && u.password === password
-    );
+    const users = readUsers();
+
+    const user = users.find((u) => u.username === username);
 
     if (!user) {
+      return res.status(401).json({
+        error: "Invalid Credentials"
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({
         error: "Invalid Credentials"
       });
@@ -97,7 +118,6 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-
     res.status(500).json({
       error: "Login Failed"
     });
