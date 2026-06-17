@@ -34,7 +34,7 @@ export const generateTrip = async (req, res) => {
     const safeInterests = interests?.trim() || "General Travel";
 
     const model = ai.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json"
       }

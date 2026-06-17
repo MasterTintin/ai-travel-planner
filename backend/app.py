@@ -311,7 +311,7 @@ JSON Schema
 
                 # 2. เรียกใช้ Gemini
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash"
+            model_name="gemini-2.5-flash"
         )
 
         response = model.generate_content(
