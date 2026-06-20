@@ -20,9 +20,8 @@ app.use(
   })
 );
 
-app.use(express.json());
-
-// Base Route สำหรับเช็ก Server ว่ายังทำงานอยู่ไหม
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.get("/", (req, res) => {
   res.send("AI Travel Planner Backend is running beautifully! 🚀");
 });
