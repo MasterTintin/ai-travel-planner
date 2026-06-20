@@ -355,6 +355,36 @@ const currencyToOfficialCountry = {
   ZWG: "Zimbabwe"
 };
 
+// 🎯 Smart Interest Presets — ปุ่มลัดความสนใจที่ผู้ใช้กดเพิ่ม/ลบได้ทันที
+const INTEREST_PRESETS = [
+  {
+    label: "🍜 กินเที่ยว",
+    text: "ชื่นชอบอาหารท้องถิ่น ร้านอร่อยซ่อนตัว และตลาดอาหารพื้นเมือง"
+  },
+  {
+    label: "📸 ถ่ายรูป",
+    text: "ชอบจุดถ่ายรูปสวยๆ วิวทิวทัศน์ และมุมถ่ายภาพที่เป็นเอกลักษณ์"
+  },
+  {
+    label: "🏛️ ประวัติศาสตร์",
+    text: "สนใจประวัติศาสตร์ วัฒนธรรมโบราณ และสถานที่ทางศาสนา"
+  },
+  {
+    label: "🛍️ ช้อปปิ้ง",
+    text: "ชอบช้อปปิ้ง ตลาดท้องถิ่น และแหล่งรวมสินค้าแฟชั่น"
+  },
+  { label: "🌿 ธรรมชาติ", text: "ชอบธรรมชาติ ภูเขา ทะเล และกิจกรรม Outdoor" },
+  {
+    label: "🌃 ไนท์ไลฟ์",
+    text: "ชอบบรรยากาศกลางคืน บาร์ และสถานบันเทิงยามค่ำ"
+  },
+  {
+    label: "👨‍👩‍👧 ครอบครัว",
+    text: "เดินทางกับครอบครัว เน้นกิจกรรมที่เหมาะกับเด็กและผู้สูงอายุ"
+  },
+  { label: "💆 พักผ่อน", text: "ชอบพักผ่อนแบบสบายๆ ไม่เร่งรีบ คาเฟ่ และสปา" }
+];
+
 function TravelPlanner() {
   const [formData, setFormData] = useState({
     destination: "Japan",
@@ -378,6 +408,7 @@ function TravelPlanner() {
   const itineraryContainerRef = useRef(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [aiEditLoading, setAiEditLoading] = useState(false);
+  const [isReplanning, setIsReplanning] = useState(false);
 
   // ดึงข้อมูลอัตราแลกเปลี่ยนจาก API
   useEffect(() => {
@@ -452,6 +483,27 @@ function TravelPlanner() {
       ...prev,
       [name]: value
     }));
+  };
+
+  // 🎯 toggle preset เข้า/ออกจาก interests — กดซ้ำคือเอาออก กดใหม่คือเพิ่มไปต่อท้าย
+  const handlePresetClick = (presetText) => {
+    setFormData((prev) => {
+      const current = prev.interests.trim();
+      const isActive = current.includes(presetText);
+
+      if (isActive) {
+        // เอา preset นี้ออก แล้วเก็บกวาดช่องว่าง/comma ที่เหลือให้สะอาด
+        const cleaned = current
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part && part !== presetText)
+          .join(", ");
+        return { ...prev, interests: cleaned };
+      }
+
+      const next = current ? `${current}, ${presetText}` : presetText;
+      return { ...prev, interests: next };
+    });
   };
 
   // 🎯 ฟังก์ชันจัดการชื่อในเครื่องคำนวณเงินให้แสดงผลเป็น "CODE (ชื่อประเทศภาษาอังกฤษ)"
@@ -567,6 +619,35 @@ function TravelPlanner() {
       alert("❌ AI แก้ไขทริปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setAiEditLoading(false);
+    }
+  };
+
+  // 🤖 AI Re-Plan Trip — ให้ AI จัดเรียงเส้นทางใหม่ทั้งทริปแบบ optimize
+  const handleRePlan = async () => {
+    if (!tripResult) return;
+
+    const confirmed = window.confirm(
+      "🤖 AI จะจัดเรียงเส้นทางทั้งทริปใหม่ทั้งหมด (กิจกรรมอาจสลับลำดับ/เปลี่ยนแปลงได้)\n\nต้องการดำเนินการต่อหรือไม่?"
+    );
+    if (!confirmed) return;
+
+    setIsReplanning(true);
+    try {
+      const response = await api.post("/trips/replan", {
+        trip: tripResult
+      });
+
+      setTripResult((prev) => ({
+        ...prev,
+        ...response.data
+      }));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      alert("✅ AI Re-Plan สำเร็จ");
+    } catch (error) {
+      console.error("RePlan Error:", error);
+      alert("❌ Re-Plan ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsReplanning(false);
     }
   };
 
@@ -1033,6 +1114,45 @@ function TravelPlanner() {
                     >
                       🎯 ออกแบบทริปของคุณ
                     </label>
+
+                    {/* 🌟 Smart Interest Presets — กดเพื่อเพิ่ม/ลบความสนใจอย่างรวดเร็ว */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "8px",
+                        marginBottom: "8px"
+                      }}
+                    >
+                      {INTEREST_PRESETS.map((preset) => {
+                        const isActive = formData.interests.includes(
+                          preset.text
+                        );
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => handlePresetClick(preset.text)}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "20px",
+                              border: isActive
+                                ? "1.5px solid #0284c7"
+                                : "1.5px solid #e2e8f0",
+                              backgroundColor: isActive ? "#e0f2fe" : "#f8fafc",
+                              color: isActive ? "#0369a1" : "#475569",
+                              fontSize: "13px",
+                              fontWeight: isActive ? "700" : "500",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease"
+                            }}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <textarea
                       name="interests"
                       value={formData.interests}
@@ -1314,7 +1434,7 @@ function TravelPlanner() {
                                     fontSize: "15px"
                                   }}
                                 >
-                                  {item.rate.toFixed(4)}{" "}
+                                  {(1 / item.rate).toFixed(4)}{" "}
                                   <span
                                     style={{
                                       fontSize: "13px",
@@ -1568,7 +1688,14 @@ function TravelPlanner() {
                                 marginRight: "10px"
                               }}
                             >
-                              ⏰ {activity.time}
+                              ⏰{" "}
+                              {activity.startTime
+                                ? `${activity.startTime}${
+                                    activity.endTime
+                                      ? ` - ${activity.endTime}`
+                                      : ""
+                                  }`
+                                : activity.time || "ไม่ระบุเวลา"}
                             </span>
                             <strong style={{ fontSize: "15px" }}>
                               {activity.locationName}
@@ -1586,7 +1713,11 @@ function TravelPlanner() {
                             <small
                               style={{ color: "#38a169", fontWeight: "bold" }}
                             >
-                              💰 ค่าใช้จ่ายโดยประมาณ: {activity.estimatedCost}
+                              💰 ค่าใช้จ่ายโดยประมาณ:{" "}
+                              {activity.displayCost ||
+                                (activity.estimatedCost !== undefined
+                                  ? `${activity.estimatedCost.toLocaleString()} THB`
+                                  : "ไม่ระบุ")}
                             </small>
                           </li>
                         ))}
@@ -1603,6 +1734,28 @@ function TravelPlanner() {
                     paddingTop: "20px"
                   }}
                 >
+                  <button
+                    onClick={handleRePlan}
+                    disabled={isReplanning}
+                    style={{
+                      width: "100%",
+                      padding: "15px",
+                      backgroundColor: isReplanning ? "#c4b5fd" : "#8b5cf6",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: isReplanning ? "not-allowed" : "pointer",
+                      fontSize: "16px",
+                      fontWeight: "bold",
+                      marginBottom: "15px",
+                      boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                    }}
+                  >
+                    {isReplanning
+                      ? "⏳ AI กำลังจัดเส้นทางใหม่..."
+                      : "🤖 Re-Plan Trip"}
+                  </button>
+
                   <button
                     onClick={handleSaveTrip}
                     style={{

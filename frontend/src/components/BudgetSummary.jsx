@@ -38,17 +38,17 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
 
     if (match) {
       let rawRate = parseFloat(match.rate);
-      if ((match.code === "JPY" || match.code === "KRW") && rawRate > 1) {
-        rawRate = rawRate / 100;
-      }
       return { code: match.code, rate: rawRate };
     }
     return { code: "THB", rate: 1 };
   };
 
   const calculateTHB = (foreignCost, currencyCode, rate) => {
-    if (currencyCode === "THB" || !currencyCode) return foreignCost;
-    return Math.round(foreignCost * rate);
+    if (currencyCode === "THB" || !currencyCode) {
+      return foreignCost;
+    }
+
+    return Math.round(foreignCost / rate);
   };
 
   // === ฟังก์ชันสำหรับการเปลี่ยน DOM เป็น PDF ===
@@ -313,6 +313,68 @@ function BudgetSummary({ tripResult = {}, exchangeData, onBack }) {
                   (tripResult?.budgetSummary?.transportCost || 0) ||
                 totalActivitiesCostTHB
               ).toLocaleString()}
+            </p>
+          </div>
+
+          {/* 🏨 ค่าที่พัก */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: "280px",
+              background: "#f4f6f6",
+              padding: "20px",
+              borderRadius: "8px",
+              borderLeft: "5px solid #8b5cf6"
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 10px 0",
+                color: "#34495e"
+              }}
+            >
+              🏨 ค่าที่พัก
+            </h3>
+
+            <p
+              style={{
+                fontSize: "24px",
+                fontWeight: "bold",
+                margin: 0
+              }}
+            >
+              ฿{(tripResult?.budgetSummary?.hotelCost || 0).toLocaleString()}
+            </p>
+          </div>
+
+          {/* 💵 ค่าใช้จ่ายรวมทั้งหมด */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: "280px",
+              background: "#f4f6f6",
+              padding: "20px",
+              borderRadius: "8px",
+              borderLeft: "5px solid #16a34a"
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 10px 0",
+                color: "#34495e"
+              }}
+            >
+              💵 ค่าใช้จ่ายรวมทั้งหมด
+            </h3>
+
+            <p
+              style={{
+                fontSize: "24px",
+                fontWeight: "bold",
+                margin: 0
+              }}
+            >
+              ฿{(tripResult?.budgetSummary?.grandTotal || 0).toLocaleString()}
             </p>
           </div>
         </div>
