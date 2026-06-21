@@ -4,6 +4,7 @@ import BudgetSummary from "../components/BudgetSummary.jsx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import Navbar from "../components/Navbar.jsx";
+import TripTransitRoutes from "../components/TripTransitRoutes.jsx";
 import planeBg from "../assets/plane.jpg";
 import cloudsBg from "../assets/cloud.jpg";
 
@@ -1600,6 +1601,10 @@ function TravelPlanner() {
                       >
                         🗑 Delete
                       </button>
+                    </div>
+
+                    <div style={{ width: "100%" }}>
+                      <TripTransitRoutes trip={trip} />
                     </div>
                   </div>
                 ))
