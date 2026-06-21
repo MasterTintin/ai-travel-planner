@@ -8,7 +8,7 @@ export const getExchangeRates = async (req, res) => {
 
     const exchangeData = Object.entries(rates).map(([code, rate]) => ({
       code,
-      rate,
+      rate: 1 / rate,
       name: code
     }));
 

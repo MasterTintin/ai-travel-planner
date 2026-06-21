@@ -409,6 +409,7 @@ function TravelPlanner() {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [aiEditLoading, setAiEditLoading] = useState(false);
   const [isReplanning, setIsReplanning] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
 
   // ดึงข้อมูลอัตราแลกเปลี่ยนจาก API
   useEffect(() => {
@@ -470,7 +471,7 @@ function TravelPlanner() {
     );
     if (!targetRateObj) return null;
 
-    const result = parseFloat(rawNumber) / targetRateObj.rate;
+    const result = parseFloat(rawNumber) * targetRateObj.rate;
     return result.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -595,7 +596,7 @@ function TravelPlanner() {
     }
   };
 
-  // ✏️ ให้ AI ช่วยแก้ไขทริปเฉพาะจุดที่เราอยากเปลี่ยน
+  // ✏️ ให้ AI ช่วยแก้ไขทริปเฉพาะจุดที่เราอยากเปลี่ยน (ใช้กับการ์ด My Trips — เด้ง prompt ถาม)
   const handleEditTrip = async (trip) => {
     const editRequest = window.prompt(
       "อยากให้ AI แก้ไขอะไรในทริปนี้?\n(เช่น: เปลี่ยนวันที่ 3 ไปเที่ยวภูเขาไฟฟูจิ)"
@@ -607,12 +608,41 @@ function TravelPlanner() {
     try {
       setAiEditLoading(true);
       const response = await api.post("/trips/edit-trip", {
-        oldTrip: trip,
-        editRequest: editRequest
+        trip: trip,
+        instruction: editRequest
       });
 
       // แสดงทริปเวอร์ชันที่ AI แก้ไขแล้วทันที
       setTripResult(response.data);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error("AI แก้ไขทริปไม่สำเร็จ:", err);
+      alert("❌ AI แก้ไขทริปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setAiEditLoading(false);
+    }
+  };
+
+  // 💬 ส่งข้อความจาก "ช่องแชต" ให้ AI แก้ไขทริปปัจจุบัน (ใช้ chatMessage แทน window.prompt)
+  const handleChatEdit = async () => {
+    if (!tripResult) return;
+
+    const editRequest = chatMessage.trim();
+    if (!editRequest) {
+      alert("พิมพ์บอก AI ก่อนนะว่าอยากแก้อะไร");
+      return;
+    }
+
+    try {
+      setAiEditLoading(true);
+      const response = await api.post("/trips/edit-trip", {
+        trip: tripResult,
+        instruction: editRequest
+      });
+
+      // แสดงทริปที่ AI แก้แล้ว + เคลียร์ช่องแชต
+      setTripResult(response.data);
+      setChatMessage("");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       console.error("AI แก้ไขทริปไม่สำเร็จ:", err);
@@ -1434,7 +1464,7 @@ function TravelPlanner() {
                                     fontSize: "15px"
                                   }}
                                 >
-                                  {(1 / item.rate).toFixed(4)}{" "}
+                                  {item.rate.toFixed(4)}{" "}
                                   <span
                                     style={{
                                       fontSize: "13px",
@@ -1594,6 +1624,73 @@ function TravelPlanner() {
                   }}
                 >
                   ⬅️ กลับไปแก้ไขฟอร์มจัดทริปใหม่
+                </button>
+              </div>
+
+              {/* 💬 ช่องแชตแก้ไขทริปด้วย AI (อยู่นอก ref เลยไม่ติดไปใน PDF) */}
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "20px",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+                  marginBottom: "20px"
+                }}
+              >
+                <h3
+                  style={{
+                    margin: "0 0 8px 0",
+                    color: "#8b5cf6",
+                    fontSize: "18px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  💬 แก้ไขทริปด้วย AI
+                </h3>
+                <p
+                  style={{
+                    margin: "0 0 12px 0",
+                    color: "#666",
+                    fontSize: "13px"
+                  }}
+                >
+                  พิมพ์บอก AI ว่าอยากเปลี่ยนอะไรในทริปนี้ แล้วกดส่ง เดี๋ยว AI
+                  จัดให้
+                </p>
+
+                <textarea
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  placeholder="เช่น วันที่ 6 ไม่อยากไป St.Mark's Basilica"
+                  style={{
+                    width: "100%",
+                    minHeight: "70px",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "1px solid #ddd",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                    fontFamily: "inherit"
+                  }}
+                />
+
+                <button
+                  onClick={handleChatEdit}
+                  disabled={aiEditLoading}
+                  style={{
+                    marginTop: "10px",
+                    padding: "12px 20px",
+                    backgroundColor: aiEditLoading ? "#c4b5fd" : "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: aiEditLoading ? "not-allowed" : "pointer",
+                    fontSize: "15px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  {aiEditLoading ? "⏳ AI กำลังแก้ไข..." : "🤖 AI Edit Trip"}
                 </button>
               </div>
 
